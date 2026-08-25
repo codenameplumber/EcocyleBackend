@@ -1,0 +1,391 @@
+/* ==========================================================================
+   EcoCycle — base.css
+   Webfaces, design tokens, reset, typography, utilities.
+   Everything downstream (components.css, layout.css) reads from these tokens.
+   ========================================================================== */
+
+/* --- Webfonts ------------------------------------------------------------
+   Self-hosted in assets/fonts/ so the prototype still opens from file:// with
+   no network and no CDN. Regenerate with tools/fetch-fonts.py.
+
+   Geist             UI, body, tables       SIL Open Font License 1.1
+   Geist Mono        batch codes, figures   SIL Open Font License 1.1
+   Instrument Serif  editorial display      SIL Open Font License 1.1
+
+   Two subsets per weight. latin-ext is not optional: the naira sign the whole
+   product is priced in (U+20A6) lives in its U+20A0-20AB block.
+   ---------------------------------------------------------------------- */
+
+@font-face { font-family: 'Geist'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('../fonts/geist-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+@font-face { font-family: 'Geist'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('../fonts/geist-400-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: 'Geist'; font-style: normal; font-weight: 500; font-display: swap;
+  src: url('../fonts/geist-500-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+@font-face { font-family: 'Geist'; font-style: normal; font-weight: 500; font-display: swap;
+  src: url('../fonts/geist-500-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: 'Geist'; font-style: normal; font-weight: 600; font-display: swap;
+  src: url('../fonts/geist-600-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+@font-face { font-family: 'Geist'; font-style: normal; font-weight: 600; font-display: swap;
+  src: url('../fonts/geist-600-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('../fonts/geist-mono-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+@font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('../fonts/geist-mono-400-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 500; font-display: swap;
+  src: url('../fonts/geist-mono-500-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+@font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 500; font-display: swap;
+  src: url('../fonts/geist-mono-500-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: 'Instrument Serif'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('../fonts/instrument-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+@font-face { font-family: 'Instrument Serif'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('../fonts/instrument-400-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+
+/* --- Tokens: light (default) ---------------------------------------------
+   Neutrals are true greys with the faintest cool cast. An earlier warm/cream
+   ground read as yellow against the green brand, which is exactly the tint a
+   product like this should not have. */
+:root {
+  /* Surfaces */
+  --bg:            #f4f5f6;
+  --surface:       #ffffff;
+  --surface-2:     #fafbfb;
+  --surface-3:     #eceef0;
+  --overlay:       rgba(14, 18, 20, .54);
+
+  /* Lines */
+  --border:        #e2e5e8;
+  --border-strong: #c7ccd1;
+  --hairline:      #d8dce0;
+
+  /* Ink */
+  --text:          #14181b;
+  --text-2:        #4e565c;
+  --text-3:        #838d94;
+  --text-inv:      #ffffff;
+
+  /* Brand — a deep pine, not a generic "eco" mint */
+  --primary:       #17603c;
+  --primary-hover: #114a2d;
+  --primary-soft:  #e5efe7;
+  --primary-line:  #b6d3c1;
+  --primary-ink:   #0d3b25;
+
+  /* Accent — West African clay. Carries the editorial surface and any
+     figure that must read as human rather than systemic. */
+  --accent:        #b0512c;
+  --accent-hover:  #953f1f;
+  --accent-soft:   #f8e9e0;
+  --accent-line:   #e6c6b4;
+
+  /* Semantic */
+  --info:          #1f5f8b;
+  --info-soft:     #e5eef5;
+  --warn:          #8a5d0a;
+  --warn-soft:     #f9efd9;
+  --danger:        #a83228;
+  --danger-soft:   #f9e8e5;
+  --success:       #17603c;
+  --success-soft:  #e5efe7;
+  --violet:        #5c3f96;
+  --violet-soft:   #eee9f8;
+  --cyan:          #0d6b71;
+  --cyan-soft:     #e0f0f1;
+
+  /* Data-viz series — a categorical ramp that stays distinguishable when
+     printed and holds up for the common red/green confusions. */
+  --c1: #17603c;  --c2: #1f5f8b;  --c3: #a8761b;
+  --c4: #5c3f96;  --c5: #0d6b71;  --c6: #b0512c;
+
+  /* Type */
+  --font:         'Geist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-display: 'Instrument Serif', Georgia, "Times New Roman", serif;
+  --mono:         'Geist Mono', ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+  --t-xs:   11.5px;
+  --t-sm:   13px;
+  --t-base: 15px;
+  --t-md:   17px;
+  --t-lg:   20px;
+  --t-xl:   26px;
+  --t-2xl:  34px;
+  --t-3xl:  46px;
+  --t-4xl:  64px;
+
+  /* Geometry — deliberately not one radius everywhere */
+  --r-xs: 4px;  --r-sm: 7px;  --r-md: 10px;  --r-lg: 14px;  --r-xl: 20px;
+  --r-pill: 999px;
+  --r-card: var(--r-md);      /* the console tightens this to --r-sm */
+  --r-media: var(--r-sm);
+
+  /* Elevation — restrained. Structure comes from hairlines, not drop shadows. */
+  --sh-1: 0 1px 1px rgba(24, 28, 18, .04);
+  --sh-2: 0 1px 2px rgba(24, 28, 18, .05), 0 6px 16px rgba(24, 28, 18, .05);
+  --sh-3: 0 18px 56px rgba(24, 28, 18, .18);
+
+  /* Motion */
+  --ease: cubic-bezier(.32, .72, .28, 1);
+  --fast: 120ms var(--ease);
+  --med:  220ms var(--ease);
+
+  /* Shell metrics */
+  --sidebar-w: 244px;
+  --topbar-h:  60px;
+  --phone-w:   440px;
+
+  /* Photographic treatment, tuned per theme */
+  --img-bg:      #e4e7ea;
+  --img-filter:  saturate(1.02) contrast(1.01);
+}
+
+/* --- Tokens: dark -------------------------------------------------------- */
+:root[data-theme="dark"] {
+  --bg:            #0f1113;
+  --surface:       #16191c;
+  --surface-2:     #1c2023;
+  --surface-3:     #24292d;
+  --overlay:       rgba(0, 0, 0, .68);
+
+  --border:        #292e33;
+  --border-strong: #3a4147;
+  --hairline:      #313940;
+
+  --text:          #e8ecef;
+  --text-2:        #9aa3aa;
+  --text-3:        #6e777e;
+  --text-inv:      #0f1113;
+
+  --primary:       #58c489;
+  --primary-hover: #6ed09a;
+  --primary-soft:  #14291d;
+  --primary-line:  #245038;
+  --primary-ink:   #b9e7cd;
+
+  --accent:        #e08a5f;
+  --accent-hover:  #ea9c74;
+  --accent-soft:   #2e1d14;
+  --accent-line:   #5a3423;
+
+  --info:          #6fadea;   --info-soft:   #14222f;
+  --warn:          #dda94f;   --warn-soft:   #2a2315;
+  --danger:        #ef8a7f;   --danger-soft: #2e1917;
+  --success:       #58c489;   --success-soft:#14291d;
+  --violet:        #ac95ea;   --violet-soft: #201b31;
+  --cyan:          #58bec7;   --cyan-soft:   #0f2528;
+
+  --c1: #58c489;  --c2: #6fadea;  --c3: #dda94f;
+  --c4: #ac95ea;  --c5: #58bec7;  --c6: #e08a5f;
+
+  --sh-1: 0 1px 2px rgba(0,0,0,.44);
+  --sh-2: 0 1px 3px rgba(0,0,0,.44), 0 10px 26px rgba(0,0,0,.36);
+  --sh-3: 0 20px 60px rgba(0,0,0,.62);
+
+  --img-bg:     #212629;
+  --img-filter: saturate(.92) contrast(1.02) brightness(.88);
+}
+
+/* --- Reset --------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; padding: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: var(--font);
+  font-size: var(--t-base);
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1;
+  transition: background var(--med), color var(--med);
+}
+
+img, svg, video, canvas { display: block; max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { background: none; border: 0; cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+table { border-collapse: collapse; width: 100%; }
+ul, ol { list-style: none; }
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+::selection { background: var(--primary-soft); color: var(--primary-ink); }
+
+/* Scrollbars */
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--r-pill);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* --- Typography ----------------------------------------------------------
+   Headings stay in the sans by default — the console is a working tool. The
+   editorial serif is opt-in via .display / .headline / .editorial.          */
+h1, h2, h3, h4 { line-height: 1.24; letter-spacing: -.014em; font-weight: 600; }
+h1 { font-size: var(--t-xl); }
+h2 { font-size: var(--t-lg); }
+h3 { font-size: 16px; }
+h4 { font-size: 14px; }
+
+/* Instrument Serif ships a single weight and is drawn for display sizes: high
+   contrast, generous cap height. It wants to be set large and tracked in
+   slightly, never bolded — synthetic bold would wreck the thin strokes. */
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--t-3xl);
+  line-height: 1.02;
+  letter-spacing: -.018em;
+}
+.headline {
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -.012em;
+}
+
+/* Editorial scope — the marketing surface, not the operational ones. */
+.editorial h1, .editorial h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -.013em;
+  line-height: 1.1;
+}
+.editorial h2 { font-size: var(--t-2xl); }
+.editorial p  { text-wrap: pretty; }
+
+.lede     { font-size: var(--t-md); color: var(--text-2); line-height: 1.55; }
+.eyebrow  { font-size: var(--t-xs); font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--text-3); }
+.muted    { color: var(--text-2); }
+.dim      { color: var(--text-3); }
+.small    { font-size: var(--t-sm); }
+.tiny     { font-size: var(--t-xs); }
+.strong   { font-weight: 600; }
+.mono     { font-family: var(--mono); font-size: .9em; letter-spacing: -.012em; }
+.num      { font-variant-numeric: tabular-nums; letter-spacing: -.008em; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.measure  { max-width: 62ch; }
+
+.t-pos { color: var(--success); }
+.t-neg { color: var(--danger); }
+.t-warn{ color: var(--warn); }
+
+/* A numeral treatment for figures that must be read, not skimmed. */
+.figure-num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.03em;
+  font-weight: 500;
+}
+
+/* --- Utilities ----------------------------------------------------------- */
+.row      { display: flex; align-items: center; gap: 10px; }
+.row-top  { display: flex; align-items: flex-start; gap: 10px; }
+.col      { display: flex; flex-direction: column; gap: 10px; }
+.between  { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.wrap     { flex-wrap: wrap; }
+.grow     { flex: 1 1 auto; min-width: 0; }
+.center   { text-align: center; }
+.right    { text-align: right; }
+.hidden   { display: none !important; }
+
+.g-4 { gap: 4px; } .g-6 { gap: 6px; } .g-8 { gap: 8px; }
+.g-10 { gap: 10px; } .g-12 { gap: 12px; } .g-14 { gap: 14px; }
+.g-16 { gap: 16px; } .g-20 { gap: 20px; } .g-24 { gap: 24px; } .g-32 { gap: 32px; }
+
+.mt-4{margin-top:4px}  .mt-8{margin-top:8px}  .mt-12{margin-top:12px}
+.mt-16{margin-top:16px} .mt-20{margin-top:20px} .mt-24{margin-top:24px}
+.mt-32{margin-top:32px} .mt-40{margin-top:40px}
+.mb-4{margin-bottom:4px} .mb-8{margin-bottom:8px} .mb-12{margin-bottom:12px}
+.mb-16{margin-bottom:16px} .mb-20{margin-bottom:20px} .mb-24{margin-bottom:24px}
+
+.grid { display: grid; gap: 16px; }
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid-auto { grid-template-columns: repeat(auto-fit, minmax(232px, 1fr)); }
+/* Short figures that should stay side by side even on a phone. */
+.grid-keep-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-keep-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* Hairline rule — the editorial surface separates with these, not with boxes. */
+.rule { height: 1px; background: var(--hairline); border: 0; }
+.rule-strong { height: 2px; background: var(--text); border: 0; }
+
+@media (max-width: 1080px) {
+  .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 680px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Pages set bespoke column ratios inline (e.g. "1.5fr 1fr"). Collapse those on
+   narrow screens — inline styles need !important to be overridden. */
+@media (max-width: 900px) {
+  .grid[style*="grid-template-columns"] { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* Icon sizing — icons.js injects <svg> into [data-icon] */
+.i { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none;
+     stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.i-sm { width: 15px; height: 15px; stroke-width: 1.8; }
+.i-lg { width: 22px; height: 22px; stroke-width: 1.6; }
+.i-xl { width: 28px; height: 28px; stroke-width: 1.5; }
+
+/* Responsive display sizes */
+@media (max-width: 900px) {
+  .display { font-size: var(--t-2xl); }
+  .editorial h2 { font-size: var(--t-xl); }
+}
+
+/* --- Print — the console gets printed as shift reports -------------------- */
+@media print {
+  .sidebar, .topbar, .bottom-nav, .no-print, .site-foot-cta { display: none !important; }
+  body { background: #fff; }
+  .main { padding: 0 !important; }
+  .card { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
+  .media, .fig { break-inside: avoid; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}

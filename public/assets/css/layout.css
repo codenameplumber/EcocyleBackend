@@ -1,0 +1,334 @@
+/* ==========================================================================
+   EcoCycle — layout.css
+   Two app shells:
+     .shell-desk   — sidebar + topbar   (Company dashboard, desktop-first)
+     .shell-phone  — phone frame + bottom nav (Household & Agent, mobile-first)
+   Both are rendered by assets/js/layout.js from <body data-app data-page>.
+   ========================================================================== */
+
+/* ========================== DESKTOP SHELL (Company) =======================
+   The console is deliberately a different register from the marketing site:
+   tighter corners, no lift, hairline structure, denser padding. It should feel
+   like a tool somebody uses for eight hours, not like a landing page.        */
+[data-app="company"] {
+  --r-card: var(--r-sm);
+  --sh-1: 0 0 rgba(0,0,0,0);     /* structure comes from borders here */
+}
+[data-app="company"] .card-head { padding: 12px 15px; }
+[data-app="company"] .card-body { padding: 15px; }
+[data-app="company"] .card-foot { padding: 11px 15px; }
+[data-app="company"] .table { font-size: 13px; }
+[data-app="company"] .table td { padding: 9px 13px; }
+[data-app="company"] .table th { padding: 8px 13px; }
+
+.shell-desk { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 100vh; }
+
+.sidebar {
+  position: sticky; top: 0; height: 100vh;
+  display: flex; flex-direction: column;
+  background: var(--surface); border-right: 1px solid var(--border);
+  z-index: 40;
+}
+.brand { display: flex; align-items: center; gap: 10px; padding: 0 16px; height: var(--topbar-h); flex: none; }
+.brand-mark {
+  width: 30px; height: 30px; border-radius: 9px; flex: none;
+  background: var(--primary); color: var(--text-inv);
+  display: grid; place-items: center;
+}
+.brand-name { font-size: 15px; font-weight: 600; letter-spacing: -.02em; }
+.brand-sub  { font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); }
+
+.nav { flex: 1; overflow-y: auto; padding: 6px 10px 16px; }
+.nav-group { margin-top: 16px; }
+.nav-group:first-child { margin-top: 4px; }
+.nav-group > .eyebrow { padding: 0 8px 7px; display: block; }
+.nav-link {
+  display: flex; align-items: center; gap: 10px;
+  height: 36px; padding: 0 10px; border-radius: var(--r-sm);
+  font-size: 13.5px; font-weight: 500; color: var(--text-2);
+  transition: background var(--fast), color var(--fast);
+}
+.nav-link:hover { background: var(--surface-3); color: var(--text); }
+.nav-link .i { color: var(--text-3); transition: color var(--fast); }
+.nav-link:hover .i { color: var(--text-2); }
+.nav-link[aria-current="page"] { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+.nav-link[aria-current="page"] .i { color: var(--primary); }
+.nav-count { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.nav-link[aria-current="page"] .nav-count { color: var(--primary); }
+.nav-count.hot { color: var(--danger); }
+
+.sidebar-foot { flex: none; padding: 12px; border-top: 1px solid var(--border); }
+
+/* Topbar */
+.topbar {
+  position: sticky; top: 0; z-index: 30;
+  height: var(--topbar-h); display: flex; align-items: center; gap: 12px;
+  padding: 0 24px;
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.topbar h1 { font-size: 16px; font-weight: 600; }
+.topbar-search { flex: 1; max-width: 340px; }
+.topbar-search .input { height: 34px; background: var(--surface); }
+
+.main { padding: 24px; max-width: 1500px; }
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.page-head p { margin-top: 4px; }
+
+.menu-btn { display: none; }
+
+@media (max-width: 1020px) {
+  .shell-desk { grid-template-columns: minmax(0, 1fr); }
+  .sidebar {
+    position: fixed; inset: 0 auto 0 0; width: 262px;
+    transform: translateX(-100%); transition: transform var(--med);
+    box-shadow: var(--sh-3);
+  }
+  body.nav-open .sidebar { transform: none; }
+  body.nav-open::after {
+    content: ""; position: fixed; inset: 0; background: var(--overlay); z-index: 35;
+  }
+  .menu-btn { display: inline-flex; }
+  .topbar { padding: 0 16px; }
+  .main { padding: 16px; }
+}
+
+/* ========================== PHONE SHELL (Household / Agent) =============== */
+.shell-phone {
+  min-height: 100vh;
+  display: flex; justify-content: center;
+  background: var(--bg);
+}
+.phone {
+  width: 100%; max-width: var(--phone-w);
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  position: relative;
+}
+@media (min-width: 900px) {
+  .shell-phone {
+    padding: 26px 20px;
+    background:
+      radial-gradient(1000px 520px at 50% -8%, var(--primary-soft), transparent 62%),
+      var(--bg);
+  }
+  .phone {
+    min-height: min(880px, calc(100vh - 52px));
+    max-height: calc(100vh - 52px);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    box-shadow: var(--sh-3);
+    overflow: hidden;
+    background: var(--surface-2);
+  }
+}
+
+.phone-top {
+  flex: none; display: flex; align-items: center; gap: 11px;
+  padding: 14px 16px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 20;
+}
+.phone-top h1 { font-size: 17px; font-weight: 600; }
+.phone-top .sub { font-size: 12px; color: var(--text-2); margin-top: 1px; }
+
+.phone-body { flex: 1; overflow-y: auto; padding: 16px 16px 22px; display: flex; flex-direction: column; gap: 16px; }
+
+/* This is a scrolling column, so nothing inside it should ever shrink to fit.
+   It matters more than it looks: a flex item only gets an automatic minimum
+   size while its overflow is `visible`. Anything that clips — .hero with its
+   decorative circles, a card with overflow:hidden wrapping a photo — resolves
+   min-height to 0 instead, and gets crushed flat whenever the phone frame is
+   height-constrained, which on desktop it always is. */
+.phone-body > * { flex-shrink: 0; }
+
+.bottom-nav {
+  flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  background: var(--surface); border-top: 1px solid var(--border);
+  padding: 7px 6px calc(7px + env(safe-area-inset-bottom, 0px));
+  position: sticky; bottom: 0; z-index: 20;
+}
+.bn-link {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 6px 2px; border-radius: var(--r-sm);
+  font-size: 10.5px; font-weight: 500; color: var(--text-3);
+  transition: color var(--fast), background var(--fast);
+}
+.bn-link:hover { background: var(--surface-3); }
+.bn-link[aria-current="page"] { color: var(--primary); }
+.bn-link .i { width: 21px; height: 21px; }
+.bn-link { position: relative; }
+.bn-link .bn-badge {
+  position: absolute; margin: -3px 0 0 16px;
+  min-width: 15px; height: 15px; padding: 0 4px; border-radius: var(--r-pill);
+  background: var(--danger); color: #fff;
+  font-size: 9.5px; font-weight: 600; display: grid; place-items: center;
+}
+
+/* Hero band inside phone screens (balance, earnings, next pickup) */
+.hero {
+  border-radius: var(--r-lg); padding: 18px;
+  background: linear-gradient(152deg, var(--primary), color-mix(in srgb, var(--primary) 64%, #0b3d26));
+  color: #fff; position: relative; overflow: hidden;
+  box-shadow: var(--sh-2);
+}
+.hero::after {
+  content: ""; position: absolute; right: -46px; top: -46px;
+  width: 168px; height: 168px; border-radius: 50%;
+  background: rgba(255, 255, 255, .09);
+}
+.hero::before {
+  content: ""; position: absolute; right: 18px; bottom: -66px;
+  width: 128px; height: 128px; border-radius: 50%;
+  background: rgba(255, 255, 255, .06);
+}
+.hero > * { position: relative; z-index: 1; }
+.hero-label { font-size: 12px; opacity: .82; font-weight: 500; }
+.hero-value { font-size: 33px; font-weight: 600; letter-spacing: -.03em; font-variant-numeric: tabular-nums; margin-top: 3px; }
+.hero-foot { display: flex; gap: 16px; margin-top: 14px; padding-top: 13px; border-top: 1px solid rgba(255,255,255,.18); }
+.hero-foot div { flex: 1; }
+.hero-foot .k { font-size: 11px; opacity: .8; }
+.hero-foot .v { font-size: 15px; font-weight: 600; margin-top: 1px; font-variant-numeric: tabular-nums; }
+
+/* Sticky action bar at the bottom of a phone screen (above nav) */
+.action-bar {
+  flex: none; padding: 11px 16px;
+  background: var(--surface); border-top: 1px solid var(--border);
+  display: flex; gap: 10px;
+}
+
+/* Quick-action tiles */
+.qa-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+.qa {
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: 13px 6px; border-radius: var(--r-md);
+  background: var(--surface); border: 1px solid var(--border);
+  font-size: 11px; font-weight: 500; color: var(--text-2); text-align: center;
+  transition: all var(--fast);
+}
+.qa:hover { border-color: var(--primary-line); color: var(--text); transform: translateY(-1px); box-shadow: var(--sh-1); }
+.qa-ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+         background: var(--primary-soft); color: var(--primary); }
+/* Tone variants work both on the tile and on a bare .qa-ic used as a list glyph. */
+.qa.v2 .qa-ic, .qa-ic.v2 { background: var(--info-soft);   color: var(--info); }
+.qa.v3 .qa-ic, .qa-ic.v3 { background: var(--warn-soft);   color: var(--warn); }
+.qa.v4 .qa-ic, .qa-ic.v4 { background: var(--violet-soft); color: var(--violet); }
+.qa.v5 .qa-ic, .qa-ic.v5 { background: var(--cyan-soft);   color: var(--cyan); }
+
+/* Section heading inside phone body */
+.sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.sec-head h3 { font-size: 14px; font-weight: 600; }
+.sec-head a  { font-size: 12.5px; font-weight: 500; color: var(--primary); }
+
+/* ========================== MARKETING / AUTH ============================== */
+.site-wrap { min-height: 100vh; display: flex; flex-direction: column; }
+.site-head {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 28px;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.site-nav { display: flex; gap: 4px; margin-left: 20px; }
+.site-nav a { padding: 7px 11px; border-radius: var(--r-sm); font-size: 13.5px; font-weight: 500; color: var(--text-2); }
+.site-nav a:hover { background: var(--surface-3); color: var(--text); }
+.site-nav a[aria-current="page"] { color: var(--text); font-weight: 600; }
+@media (max-width: 760px) { .site-nav { display: none; } }
+
+/* Page header for the secondary marketing pages */
+.page-hero { padding: 56px 0 40px; }
+.page-hero .display { font-size: var(--t-3xl); }
+@media (max-width: 900px) { .page-hero { padding: 36px 0 28px; } }
+
+.container { width: min(1220px, 100% - 40px); margin-inline: auto; }
+.container-narrow { width: min(760px, 100% - 40px); margin-inline: auto; }
+.section { padding: 76px 0; }
+.section-tight { padding: 48px 0; }
+
+/* The old hero was two radial gradient blooms — the single most template-looking
+   thing on the page. It is now a plain ground; the photograph does the work. */
+.hero-band { padding: 64px 0 56px; }
+
+/* Editorial grid: a wide text column and a narrower rail, never 50/50. */
+.ed-split, .ed-split-rev {
+  display: grid;
+  gap: 56px; align-items: end;
+}
+.ed-split     { grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); }
+.ed-split-rev { grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); }
+@media (max-width: 940px) {
+  .ed-split, .ed-split-rev { grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: stretch; }
+}
+
+/* Section label sitting in the left margin, print-style. */
+.ed-head {
+  display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: 32px;
+  align-items: start; padding-top: 22px; border-top: 2px solid var(--text);
+}
+@media (max-width: 820px) {
+  .ed-head { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+}
+
+/* Numbered editorial list — the pipeline as a sequence, not six equal cards. */
+.ed-steps { display: flex; flex-direction: column; }
+.ed-step {
+  display: grid; grid-template-columns: 56px minmax(0, 1fr) minmax(0, 360px);
+  gap: 28px; align-items: center;
+  padding: 20px 0; border-top: 1px solid var(--hairline);
+}
+.ed-step:last-child { border-bottom: 1px solid var(--hairline); }
+@media (max-width: 820px) {
+  .ed-step { grid-template-columns: 44px minmax(0, 1fr); gap: 16px; }
+  .ed-step > .media { grid-column: 1 / -1; }
+}
+
+/* Figure statistics laid out as a ruled row rather than four identical tiles. */
+.ed-figures {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 28px;
+  border-top: 1px solid var(--text);
+}
+/* One rule across the top and nothing else — the spacing separates the columns. */
+.ed-figures > div { padding: 18px 0 0; }
+.ed-figures .n {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: var(--t-2xl); line-height: 1; letter-spacing: -.022em;
+}
+@media (max-width: 760px) {
+  .ed-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+}
+
+.auth-wrap { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
+/* A photograph carries the brand side, with a green wash over it so the type
+   stays legible and the page still reads as EcoCycle rather than as stock. */
+.auth-aside {
+  position: relative; isolation: isolate;
+  padding: 46px; display: flex; flex-direction: column; justify-content: space-between;
+  color: #fff; overflow: hidden;
+  background: #0d3b25 url('../img/city-street.jpg') center / cover no-repeat;
+}
+.auth-aside::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(158deg, rgba(13, 59, 37, .90), rgba(7, 33, 21, .96));
+}
+.auth-aside > * { position: relative; }
+.auth-aside h2 {
+  font-family: var(--font-display); font-weight: 700;
+  letter-spacing: -.018em; line-height: 1.16;
+}
+.auth-form { display: grid; place-items: center; padding: 40px 24px; }
+.auth-box { width: min(400px, 100%); }
+@media (max-width: 900px) { .auth-wrap { grid-template-columns: 1fr; } .auth-aside { display: none; } }
+
+/* Flow diagram used on the landing page */
+.flow { display: flex; align-items: stretch; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.flow-node {
+  flex: 1 0 168px; padding: 15px; border-radius: var(--r-md);
+  background: var(--surface); border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.flow-arrow { display: grid; place-items: center; color: var(--text-3); flex: none; }
