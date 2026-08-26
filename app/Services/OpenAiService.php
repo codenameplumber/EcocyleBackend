@@ -2,13 +2,12 @@
 
 namespace App\Services;
 
-use Anthropic\Client;
-use Anthropic\Messages\Base64ImageSource;
-use Anthropic\Messages\ImageBlockParam;
 use Illuminate\Support\Facades\Log;
+use OpenAI;
+use OpenAI\Client;
 
 /**
- * Every AI feature in EcoCycle, backed by Claude.
+ * Every AI feature in EcoCycle, backed by OpenAI.
  *
  * Two rules hold throughout:
  *
@@ -18,36 +17,29 @@ use Illuminate\Support\Facades\Log;
  *      anything. We aggregate first and hand it real figures, so an answer
  *      here cannot invent a number.
  */
-class ClaudeService
+class OpenAiService
 {
     private ?Client $client = null;
 
     public function enabled(): bool
     {
-        return filled(config('ecocycle.claude.key'));
+        return filled(config('ecocycle.openai.key'));
     }
 
     private function client(): Client
     {
-        return $this->client ??= new Client(apiKey: config('ecocycle.claude.key'));
+        return $this->client ??= OpenAI::factory()
+            ->withApiKey((string) config('ecocycle.openai.key'))
+            ->withOrganization(config('ecocycle.openai.organization') ?: null)
+            // The classifier sends a base64 photograph, which is slow enough on
+            // a Lagos connection that the default ten seconds is not generous.
+            ->withHttpClient(new \GuzzleHttp\Client(['timeout' => 60]))
+            ->make();
     }
 
     private function model(): string
     {
-        return (string) config('ecocycle.claude.model');
-    }
-
-    /** Pull the plain text out of a response, skipping thinking blocks. */
-    private function textOf(object $message): string
-    {
-        $out = '';
-        foreach ($message->content as $block) {
-            if (($block->type ?? null) === 'text') {
-                $out .= $block->text;
-            }
-        }
-
-        return trim($out);
+        return (string) config('ecocycle.openai.model');
     }
 
     // ------------------------------------------------------------ analytics
@@ -86,21 +78,21 @@ class ClaudeService
         TXT;
 
         try {
-            $message = $this->client()->messages->create(
-                model: $this->model(),
-                maxTokens: 1024,
-                system: $system,
-                // Phrasing pre-computed figures is not hard work; keep it cheap and fast.
-                thinking: ['type' => 'adaptive'],
-                outputConfig: ['effort' => 'low'],
-                messages: [[
-                    'role' => 'user',
-                    'content' => "Figures:\n" . json_encode($facts, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
-                        . "\n\nQuestion: {$question}",
-                ]],
-            );
+            $response = $this->client()->chat()->create([
+                'model' => $this->model(),
+                'max_completion_tokens' => 400,
+                'messages' => [
+                    ['role' => 'system', 'content' => $system],
+                    [
+                        'role' => 'user',
+                        'content' => "Figures:\n"
+                            . json_encode($facts, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+                            . "\n\nQuestion: {$question}",
+                    ],
+                ],
+            ]);
 
-            $text = $this->textOf($message);
+            $text = trim((string) ($response->choices[0]->message->content ?? ''));
 
             if ($text === '') {
                 throw new \RuntimeException('empty response');
@@ -108,7 +100,7 @@ class ClaudeService
 
             return ['answer' => $text, 'source' => $source, 'generated' => true];
         } catch (\Throwable $e) {
-            Log::warning('Claude analytics failed', ['error' => $e->getMessage()]);
+            Log::warning('OpenAI analytics failed', ['error' => $e->getMessage()]);
 
             return [
                 'answer' => $this->fallbackAnswer($facts),
@@ -163,31 +155,32 @@ class ClaudeService
         TXT;
 
         try {
-            $message = $this->client()->messages->create(
-                model: $this->model(),
-                maxTokens: 1024,
-                thinking: ['type' => 'adaptive'],
-                outputConfig: ['effort' => 'medium'],
-                messages: [[
+            $dataUri = 'data:' . $mime . ';base64,'
+                . base64_encode((string) file_get_contents($absolutePath));
+
+            $response = $this->client()->chat()->create([
+                'model' => config('ecocycle.openai.vision_model'),
+                'max_completion_tokens' => 500,
+                // Ask for JSON at the API level so a stray sentence cannot break
+                // the parse; the prompt asks for it too, belt and braces.
+                'response_format' => ['type' => 'json_object'],
+                'messages' => [[
                     'role' => 'user',
                     'content' => [
-                        ImageBlockParam::with(
-                            source: Base64ImageSource::with(
-                                data: base64_encode((string) file_get_contents($absolutePath)),
-                                mediaType: $mime,
-                            ),
-                        ),
                         ['type' => 'text', 'text' => $instruction],
+                        ['type' => 'image_url', 'image_url' => ['url' => $dataUri, 'detail' => 'low']],
                     ],
                 ]],
-            );
+            ]);
 
-            $raw = $this->textOf($message);
+            $raw = trim((string) ($response->choices[0]->message->content ?? ''));
             $raw = trim(preg_replace('/^```(?:json)?|```$/m', '', $raw) ?? '');
             $parsed = json_decode($raw, true);
 
             if (! is_array($parsed) || ! isset($parsed['mix']) || ! is_array($parsed['mix'])) {
-                Log::warning('Claude classification returned unparseable output', ['raw' => mb_substr($raw, 0, 300)]);
+                Log::warning('OpenAI classification returned unparseable output', [
+                    'raw' => mb_substr($raw, 0, 300),
+                ]);
 
                 return $fallback;
             }
@@ -205,7 +198,7 @@ class ClaudeService
                 'note' => isset($parsed['note']) ? (string) $parsed['note'] : null,
             ];
         } catch (\Throwable $e) {
-            Log::warning('Claude classification failed', ['error' => $e->getMessage()]);
+            Log::warning('OpenAI classification failed', ['error' => $e->getMessage()]);
 
             return $fallback;
         }
@@ -218,7 +211,7 @@ class ClaudeService
     {
         return sprintf(
             'Intake today is %s kg. This month %s kg has been verified across %d batches, '
-            . 'settling NGN %s. Add an ANTHROPIC_API_KEY to ask this in plain language.',
+            . 'settling NGN %s. Add an OPENAI_API_KEY to ask this in plain language.',
             number_format((float) ($facts['intake_today_kg'] ?? 0), 1),
             number_format((float) ($facts['verified_kg_month'] ?? 0), 1),
             (int) ($facts['batch_count'] ?? 0),

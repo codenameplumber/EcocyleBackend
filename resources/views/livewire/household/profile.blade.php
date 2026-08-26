@@ -82,4 +82,115 @@
             </button>
         </div>
     </section>
+
+    @if ($pins)
+        <section class="card" style="overflow:hidden">
+            <div class="card-head"><h3>Where we collect from</h3><span class="badge">registered pin</span></div>
+            <x-map :pins="$pins" :height="150" :legend="false" />
+            <div class="card-body">
+                <p class="tiny dim">
+                    Agents are matched and routed on this pin, not on the written address.
+                    If it is wrong, set it again from the request screen while you are at home.
+                </p>
+            </div>
+        </section>
+    @endif
+
+    {{-- Collection preferences --}}
+    <section class="card">
+        <div class="card-head"><h3>Collection preferences</h3></div>
+        <div class="card-body col g-14">
+            <div class="field">
+                <label class="label">Usual waste category</label>
+                <div class="opt-grid">
+                    @foreach ($categories as $c)
+                        <label class="opt" wire:key="cat-{{ $c->id }}">
+                            <input type="radio" name="usual-category" value="{{ $c->id }}"
+                                   wire:click="setCategory({{ $c->id }})"
+                                   @checked($default_category_id === $c->id)>
+                            <span class="opt-name">{{ $c->label }}</span>
+                            <span class="opt-desc figure-num">₦{{ (int) $c->rate_per_kg }}/kg</span>
+                        </label>
+                    @endforeach
+                </div>
+                <span class="hint">This is what a new request is pre-filled with. The inspector's grading always wins over it.</span>
+            </div>
+
+            @foreach ([
+                'remind_when_due' => 'Remind me when a pickup is due',
+                'allow_agent_call' => 'Let agents call me before arrival',
+                'auto_request' => 'Auto-request on my usual schedule',
+            ] as $key => $label)
+                <label class="switch" wire:key="pref-{{ $key }}">
+                    <input type="checkbox" wire:click="toggle('{{ $key }}')" @checked($prefs[$key] ?? false)>
+                    <span class="track"></span>
+                    <span class="small">{{ $label }}</span>
+                </label>
+            @endforeach
+        </div>
+    </section>
+
+    {{-- Everything else --}}
+    <x-payout-account :account="$account" :banks="$banks" :cycles="$cycles"
+                      :show-payout="$showPayout" :payout-auto="$payoutAuto" />
+
+    <section class="card">
+        <div class="card-head"><h3>Account</h3></div>
+        <ul class="list">
+            <li>
+                <a class="item" href="{{ route('app.notifications') }}" wire:navigate>
+                    <i data-icon="bell" class="i i-sm dim"></i>
+                    <span class="grow item-title">Notifications</span>
+                    <i data-icon="chevR" class="i i-sm dim"></i>
+                </a>
+            </li>
+            <li>
+                <a class="item" href="{{ route('app.history') }}" wire:navigate>
+                    <i data-icon="history" class="i i-sm dim"></i>
+                    <span class="grow item-title">Collection history</span>
+                    <i data-icon="chevR" class="i i-sm dim"></i>
+                </a>
+            </li>
+            <li>
+                <a class="item" href="{{ route('app.wallet') }}" wire:navigate>
+                    <i data-icon="wallet" class="i i-sm dim"></i>
+                    <span class="grow item-title">Wallet and payouts</span>
+                    <i data-icon="chevR" class="i i-sm dim"></i>
+                </a>
+            </li>
+            <li>
+                <a class="item" href="mailto:ops@ecocycle.ng">
+                    <i data-icon="mail" class="i i-sm dim"></i>
+                    <span class="grow item-title">Contact the facility</span>
+                    <i data-icon="chevR" class="i i-sm dim"></i>
+                </a>
+            </li>
+        </ul>
+    </section>
+
+    {{-- Notifications --}}
+    <section class="card">
+        <div class="card-head">
+            <h3>Notifications</h3>
+            <a class="small strong" style="color:var(--primary)" href="{{ route('app.notifications') }}" wire:navigate>Open feed</a>
+        </div>
+        <div class="card-body col g-14">
+            @foreach ([
+                'notify_accepted' => 'Agent accepted my request',
+                'notify_verified' => 'Batch verified at the facility',
+                'notify_credited' => 'Payment credited',
+                'notify_weekly' => 'Weekly impact summary',
+            ] as $key => $label)
+                <label class="switch" wire:key="note-{{ $key }}">
+                    <input type="checkbox" wire:click="toggle('{{ $key }}')" @checked($prefs[$key] ?? false)>
+                    <span class="track"></span>
+                    <span class="small">{{ $label }}</span>
+                </label>
+            @endforeach
+            <p class="tiny dim">
+                These control email. Every event still lands in the in-app feed, because the feed is
+                the record of what happened to your waste, not a marketing channel.
+            </p>
+        </div>
+    </section>
 </div>

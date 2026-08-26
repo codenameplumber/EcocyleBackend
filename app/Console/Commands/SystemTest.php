@@ -17,7 +17,7 @@ use App\Services\BatchStateMachine;
 use App\Services\IntegrityService;
 use App\Services\JobMatcher;
 use App\Services\LedgerService;
-use App\Services\ClaudeService;
+use App\Services\OpenAiService;
 use App\Services\QrService;
 use App\Services\SettlementService;
 use Illuminate\Console\Command;
@@ -464,9 +464,9 @@ class SystemTest extends Command
 
     private function testOpenAiFallback(): void
     {
-        $this->group('Claude');
+        $this->group('OpenAI');
 
-        $ai = app(ClaudeService::class);
+        $ai = app(OpenAiService::class);
         $enabled = $ai->enabled();
         $this->line('    key configured: ' . ($enabled ? 'yes' : 'NO — testing fallbacks'));
 

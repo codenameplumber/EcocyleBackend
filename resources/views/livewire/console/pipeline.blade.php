@@ -18,7 +18,8 @@
                 </div>
                 <div class="board-list">
                     @forelse ($col['batches'] as $b)
-                        <div class="board-card">
+                        <div class="board-card" wire:key="pb-{{ $b->id }}"
+                             wire:click="show({{ $b->id }})" style="cursor:pointer">
                             <div class="between">
                                 <span class="mono tiny">{{ $b->shortCode() }}</span>
                                 <span class="tiny dim">{{ $b->updated_at->diffForHumans(short: true) }}</span>
@@ -46,4 +47,12 @@
         Columns follow <span class="mono">BatchStatus</span> exactly. Because every stage is a real state
         rather than a label, this board is the database rather than a report drawn over it.
     </p>
+    {{-- Batch record --}}
+    @if ($this->openBatch)
+        <div class="scrim" wire:click.self="close">
+            <div class="modal" role="dialog" aria-modal="true">
+                <x-batch-sheet :batch="$this->openBatch" />
+            </div>
+        </div>
+    @endif
 </div>

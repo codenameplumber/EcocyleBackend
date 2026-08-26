@@ -7,8 +7,10 @@ use App\Models\WasteBatch;
 use App\Models\WasteCategory;
 use App\Notifications\BatchCollected;
 use App\Services\BatchStateMachine;
-use App\Services\ClaudeService;
+use App\Services\OpenAiService;
 use App\Services\QrService;
+use App\Services\JobMatcher;
+use App\Support\Geo;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -79,7 +81,7 @@ class Pickup extends Component
         $path = $this->photo->getRealPath();
 
         // Advisory only. The inspector at the facility always overrides this.
-        $this->classification = app(ClaudeService::class)->classifyPhoto($path);
+        $this->classification = app(OpenAiService::class)->classifyPhoto($path);
         $this->classifying = false;
     }
 
@@ -127,8 +129,31 @@ class Pickup extends Component
     {
         $agent = auth()->user()->agent;
 
+        $h = $this->batch->household;
+
+        // Stage 1 is the drive: you and the doorstep. Stage 2 confirms arrival
+        // against the same point, which is why it gets its own tighter map.
+        $travel = [];
+        if ($agent->last_lat) {
+            $travel[] = Geo::pin((float) $agent->last_lat, (float) $agent->last_lng,
+                'agent', live: true, label: 'You');
+        }
+        if ($h?->lat) {
+            $travel[] = Geo::pin((float) $h->lat, (float) $h->lng,
+                'house', label: explode(' ', $h->name())[0]);
+        }
+
         return view('livewire.agent.pickup', [
             'agent'      => $agent,
+            'travelPins' => count($travel) > 1 ? $travel : [],
+            'pickupPin'  => $h?->lat
+                ? [Geo::pin((float) $h->lat, (float) $h->lng, 'house', live: true, label: 'Pickup point')]
+                : [],
+            'distanceKm' => ($agent->last_lat && $h?->lat)
+                ? round(app(JobMatcher::class)->distanceKm(
+                    (float) $agent->last_lat, (float) $agent->last_lng,
+                    (float) $h->lat, (float) $h->lng), 1)
+                : null,
             'categories' => WasteCategory::active()->get(),
             'household'  => $this->batch->household,
             'onBoard'    => $agent->loadOnBoardKg(),

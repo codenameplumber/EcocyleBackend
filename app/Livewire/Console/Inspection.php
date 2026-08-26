@@ -8,6 +8,7 @@ use App\Models\WasteCategory;
 use App\Notifications\BatchRejected;
 use App\Notifications\BatchVerified;
 use App\Services\BatchStateMachine;
+use App\Services\OpenAiService;
 use App\Services\IntegrityService;
 use App\Services\SettlementService;
 use Livewire\Attributes\Layout;
@@ -33,6 +34,9 @@ class Inspection extends Component
     public string $rejectionReason = '';
     public string $inspectorNote = '';
     public bool $showReject = false;
+
+    /** True only while a classification request is in flight. */
+    public bool $classifying = false;
 
     public array $contaminationOptions = [
         'None', 'Construction debris', 'Glass shards', 'Liquids', 'Nappies', 'Batteries', 'Textiles',
@@ -192,7 +196,60 @@ class Inspection extends Component
         $this->selectFirst();
     }
 
-    public function render()
+    /**
+     * Ask the classifier what it sees in the agent's pickup photograph.
+     *
+     * Explicitly on demand rather than on batch load: it is a paid API call, the
+     * inspector often does not need it, and a screen that quietly bills per page
+     * view is a screen nobody trusts. The result is stored on the batch so the
+     * same photograph is never sent twice.
+     */
+    public function classify(OpenAiService $ai): void
+    {
+        $batch = $this->batch;
+
+        if (! $batch?->photo_path) {
+            $this->dispatch('toast', message: 'No pickup photograph on this batch', kind: 'warn');
+
+            return;
+        }
+
+        $this->classifying = true;
+
+        $path = \Illuminate\Support\Facades\Storage::disk('public')->path($batch->photo_path);
+        $result = $ai->classifyPhoto($path);
+
+        $batch->update(['classification' => $result]);
+        $this->classifying = false;
+
+        $this->dispatch('toast',
+            message: $result['generated']
+                ? 'Classifier returned an assessment'
+                : 'Classifier unavailable — showing the stored default',
+            kind: $result['generated'] ? 'ok' : 'warn');
+    }
+
+    /**
+     * Whether the inspector's confirmed category disagrees with the classifier.
+     *
+     * Surfacing the disagreement is the point: it is the signal that says either
+     * the photograph was misleading or the model is drifting, and discarding it
+     * would throw away the only feedback the classifier ever gets.
+     */
+    public function getDisagreementProperty(): ?string
+    {
+        $suggested = $this->batch?->classification['suggested'] ?? null;
+
+        if (! $suggested || ! $this->categoryId) {
+            return null;
+        }
+
+        $confirmed = WasteCategory::find($this->categoryId)?->key;
+
+        return ($confirmed && $confirmed !== $suggested) ? $suggested : null;
+    }
+
+    public function render(OpenAiService $ai)
     {
         $queue = WasteBatch::awaitingInspection()
             ->with(['household.user', 'category'])
@@ -203,6 +260,7 @@ class Inspection extends Component
             'queue' => $queue,
             'queueKg' => $queue->sum(fn ($b) => $b->collected_kg ?? $b->expected_kg ?? 0),
             'categories' => WasteCategory::active()->get(),
+            'aiEnabled' => $ai->enabled(),
         ])->layoutData(['page' => 'inspection', 'heading' => 'Inspection']);
     }
 }

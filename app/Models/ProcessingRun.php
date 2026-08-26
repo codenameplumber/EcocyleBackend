@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ProcessingRun extends Model
 {
@@ -23,5 +24,21 @@ class ProcessingRun extends Model
     public function line(): BelongsTo
     {
         return $this->belongsTo(ProcessingLine::class, 'processing_line_id');
+    }
+
+    /** The batches this run consumed -- what makes the output traceable. */
+    public function batches(): HasMany
+    {
+        return $this->hasMany(WasteBatch::class);
+    }
+
+    public function badgeClass(): string
+    {
+        return match ($this->status) {
+            'complete' => 'badge-green',
+            'running'  => 'badge-cyan',
+            'failed'   => 'badge-red',
+            default    => '',
+        };
     }
 }

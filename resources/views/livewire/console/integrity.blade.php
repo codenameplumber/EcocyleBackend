@@ -4,6 +4,9 @@
             <h1>Integrity review</h1>
             <p class="muted">Every flag carries its evidence and can be appealed.</p>
         </div>
+        <button class="btn btn-ghost" wire:click="$set('showRules', true)">
+            <i data-icon="settings" class="i i-sm"></i> Detection rules
+        </button>
     </div>
 
     <section class="grid grid-4 mb-16">
@@ -35,7 +38,10 @@
 
     <section class="grid" style="grid-template-columns:360px minmax(0,1fr);gap:16px;align-items:start">
         <div class="card">
-            <div class="card-head"><h3>Cases</h3><span class="badge">{{ $cases->count() }}</span></div>
+            <div class="card-head">
+                <h3>{{ $filter === 'open' ? 'Open cases' : 'Cases' }}</h3>
+                <span class="badge">{{ $cases->total() }}</span>
+            </div>
             <div class="tabs" style="padding:0 12px">
                 @foreach (['open' => 'Open', 'confirmed' => 'Confirmed', 'dismissed' => 'Dismissed', 'all' => 'All'] as $k => $label)
                     <button class="tab" wire:click="setFilter('{{ $k }}')"
@@ -68,6 +74,9 @@
                     </div></li>
                 @endforelse
             </ul>
+            @if ($cases->hasPages())
+                <div class="card-foot">{{ $cases->links() }}</div>
+            @endif
         </div>
 
         @if ($this->flag)
@@ -127,6 +136,54 @@
                     </div>
                 @endif
 
+                @if ($evidence['count'] > 1)
+                    <div class="card">
+                        <div class="card-head">
+                            <h3>Evidence</h3>
+                            <span class="badge">{{ $evidence['count'] }} weighed batches</span>
+                        </div>
+                        <div class="card-body">
+                            <svg class="chart" data-chart="area" data-height="170"
+                                 data-values="{{ implode(',', $evidence['declared']) }}"
+                                 data-compare="{{ implode(',', $evidence['verified']) }}"
+                                 data-compare-color="var(--primary)"
+                                 data-labels="{{ implode(',', $evidence['labels']) }}"></svg>
+                            <div class="row g-20 wrap mt-10">
+                                <span class="row g-6 tiny">
+                                    <span style="width:10px;height:2px;background:var(--c1);display:inline-block"></span>
+                                    Declared by the agent
+                                </span>
+                                <span class="row g-6 tiny">
+                                    <span style="width:10px;height:2px;background:var(--primary);display:inline-block"></span>
+                                    Verified at the gate
+                                </span>
+                            </div>
+                            <p class="tiny dim mt-10">
+                                One batch apart from the scale is noise. A line that sits consistently
+                                above the other is the pattern this case exists to surface.
+                            </p>
+                        </div>
+                    </div>
+                @endif
+
+                @if ($trail)
+                    <div class="card">
+                        <div class="card-head">
+                            <h3>Location trail</h3>
+                            <span class="badge badge-blue">GPS at each confirmation</span>
+                        </div>
+                        <x-map :pins="$trail" :height="260" :legend="false"
+                               :note="$trailDistance !== null ? number_format($trailDistance, 0).' m apart' : null" />
+                        <div class="card-body">
+                            <p class="tiny dim">
+                                Each pickup confirmation records coordinates. A confirmation more than
+                                {{ $thresholds['gps_radius_m'] }} m from the household's registered position
+                                raises a location flag on that batch.
+                            </p>
+                        </div>
+                    </div>
+                @endif
+
                 <div class="card">
                     <div class="card-head"><h3>Resolution</h3></div>
                     <div class="card-body">
@@ -154,4 +211,97 @@
             </div>
         @endif
     </section>
+
+    {{-- The detector registry, read straight off IntegrityService::SIGNALS, so
+         this grid cannot claim a check the code does not run. --}}
+    <section class="card mt-16">
+        <div class="card-head">
+            <h3>What the system watches for</h3>
+            <span class="badge badge-violet">{{ collect($signals)->where('live', true)->count() }} of {{ count($signals) }} running</span>
+        </div>
+        <div class="card-body">
+            <div class="grid grid-4">
+                @foreach ($signals as $sig)
+                    <div class="card card-pad" style="box-shadow:none{{ $sig['live'] ? '' : ';opacity:.58' }}">
+                        <div class="between">
+                            <span class="qa-ic" style="width:30px;height:30px;background:var(--danger-soft);color:var(--danger)">
+                                <i data-icon="{{ $sig['icon'] }}" class="i i-sm"></i>
+                            </span>
+                            @if ($sig['live'])
+                                <span class="badge badge-green"><span class="dot"></span>{{ $flagCounts[$sig['key']] ?? 0 }}</span>
+                            @else
+                                <span class="badge">planned</span>
+                            @endif
+                        </div>
+                        <div class="small strong mt-8">{{ $sig['name'] }}</div>
+                        <div class="tiny dim">{{ $sig['detail'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+            <p class="tiny dim mt-14">
+                Four detectors run on every batch as it is weighed; the badge on each is how many cases it
+                has raised. The greyed four describe patterns the pilot's data does not yet support, and are
+                listed so the gap is visible rather than implied.
+            </p>
+        </div>
+    </section>
+
+    {{-- Detection thresholds --}}
+    @if ($showRules)
+        <div class="scrim" wire:click.self="$set('showRules', false)">
+            <div class="modal" role="dialog" aria-modal="true">
+                <div class="card-head">
+                    <h3>Detection thresholds</h3>
+                    <button class="btn btn-icon btn-quiet" wire:click="$set('showRules', false)" aria-label="Close">
+                        <i data-icon="close"></i>
+                    </button>
+                </div>
+                <div class="card-body col g-14">
+                    <div class="field">
+                        <label class="label">Weight variance tolerance</label>
+                        <div class="input-group">
+                            <input class="input" value="{{ $thresholds['variance_tolerance'] }}" readonly>
+                            <span class="input-suffix">%</span>
+                        </div>
+                        <span class="hint">Gaps wider than this raise a case. Settlement is unaffected — money already follows the gate scale.</span>
+                    </div>
+                    <div class="field">
+                        <label class="label">GPS radius</label>
+                        <div class="input-group">
+                            <input class="input" value="{{ $thresholds['gps_radius_m'] }}" readonly>
+                            <span class="input-suffix">m</span>
+                        </div>
+                        <span class="hint">Distance from the registered address beyond which a confirmation is questioned.</span>
+                    </div>
+                    <div class="field">
+                        <label class="label">Volume spike multiplier</label>
+                        <div class="input-group">
+                            <input class="input" value="{{ $thresholds['spike_multiple'] }}" readonly>
+                            <span class="input-suffix">&times;</span>
+                        </div>
+                        <span class="hint">Against the household's rolling baseline of its last eight verified batches.</span>
+                    </div>
+                    <div class="field">
+                        <label class="label">Rejection run</label>
+                        <div class="input-group">
+                            <input class="input" value="{{ $thresholds['rejection_run'] }}" readonly>
+                            <span class="input-suffix">in a row</span>
+                        </div>
+                    </div>
+                    <div class="callout">
+                        <i data-icon="info" class="i i-sm"></i>
+                        <div>
+                            These are read from <span class="mono">config/ecocycle.php</span> and
+                            <span class="mono">IntegrityService</span>. Editing a threshold from this screen
+                            would let an operator quietly widen the tolerance on their own cases, so it is
+                            deliberately a deployment change.
+                        </div>
+                    </div>
+                </div>
+                <div class="card-foot row" style="justify-content:flex-end">
+                    <button class="btn btn-ghost" wire:click="$set('showRules', false)">Close</button>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

@@ -40,6 +40,16 @@ class Register extends Component
     // Agent
     public string $vehicle = 'Tricycle';
     public int $capacity = 260;
+    public string $plate = '';
+
+    /**
+     * The applicant has read what compliance papers are required.
+     *
+     * Uploading them is not built — the pilot verifies by hand — but being told
+     * up front is the part that was missing. Without this the first an agent
+     * heard of any of it was four red rows on their own profile.
+     */
+    public bool $compliance = false;
 
     // Location
     public ?int $area_id = null;
@@ -64,6 +74,18 @@ class Register extends Component
                 'phone'    => 'required|string|min:7|max:20',
                 'password' => 'required|string|min:8',
             ]);
+
+            if ($this->role === 'agent') {
+                $this->validate([
+                    // The weighbridge identifies a vehicle by its plate, so an
+                    // agent without one arrives at the gate unidentifiable.
+                    'plate'      => 'required|string|min:3|max:16',
+                    'capacity'   => 'required|integer|min:10|max:5000',
+                    'compliance' => 'accepted',
+                ], [
+                    'compliance.accepted' => 'Please confirm you can provide the documents listed above.',
+                ], ['plate' => 'vehicle plate']);
+            }
         }
 
         if ($this->step === 3) {
@@ -114,9 +136,14 @@ class Register extends Component
                     'code'           => 'EC-A-' . str_pad((string) (Agent::count() + 43), 4, '0', STR_PAD_LEFT),
                     'vehicle_type'   => $this->vehicle,
                     'capacity_kg'    => $this->capacity,
+                    'plate'          => strtoupper(trim($this->plate)) ?: null,
                     'operating_area' => $area?->name,
                     'last_lat'       => $this->lat ?? $area?->lat,
                     'last_lng'       => $this->lng ?? $area?->lng,
+                    // Awaiting review, not missing. `kyc_verified_at` stays null
+                    // because only the facility may set it -- an applicant does
+                    // not get to verify themselves.
+                    'documents'      => $this->declaredDocuments(),
                 ]);
                 $this->createdCode = $agent->code;
             } else {
@@ -138,16 +165,50 @@ class Register extends Component
         });
     }
 
+    /**
+     * The four papers, recorded as declared-but-unverified.
+     *
+     * @return array<string, array{status: string, note: string}>
+     */
+    private function declaredDocuments(): array
+    {
+        return collect(Agent::DOCUMENT_TYPES)
+            ->map(fn () => [
+                'status' => 'pending',
+                'note'   => 'Declared at sign-up · send to ops@ecocycle.ng for verification',
+            ])
+            ->all();
+    }
+
     public function finish()
     {
+        // The account is created on the step 3 -> 4 transition, so reaching this
+        // without one means the flow was re-entered out of order -- a stale tab,
+        // a back button, an expired session. Send them back to the step that
+        // still needs doing rather than dying on a null user.
+        if (! Auth::check()) {
+            $this->step = 3;
+
+            return null;
+        }
+
         return redirect(Auth::user()->role->home());
     }
 
     public function render()
     {
         return view('livewire.auth.register', [
+            // The pin the account will be matched on, once coordinates exist.
+            'pins'       => $this->lat
+                ? [\App\Support\Geo::pin((float) $this->lat, (float) $this->lng,
+                    $this->role === 'agent' ? 'agent' : 'house', live: true, label: 'You')]
+                : [],
             'areas'      => Area::where('is_active', true)->orderBy('name')->get(),
             'categories' => WasteCategory::active()->get(),
+        ])->layoutData([
+            'aside' => 'register',
+            'back' => route('login'),
+            'backLabel' => 'Sign in',
         ]);
     }
 }

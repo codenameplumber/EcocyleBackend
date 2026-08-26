@@ -40,14 +40,15 @@ class IntegrityFlag extends Model
     /** Human label for the detection type. */
     public function kindLabel(): string
     {
-        return match ($this->kind) {
-            'weight_variance'  => 'Weight variance',
-            'gps'              => 'GPS inconsistency',
-            'impossible_travel'=> 'Impossible travel',
-            'duplicate'        => 'Duplicate collection',
-            'repeat_rejection' => 'Repeat rejection',
-            'volume_spike'     => 'Volume spike',
-            default            => ucfirst(str_replace('_', ' ', $this->kind)),
-        };
+        // Labels come from the detector registry so the case list and the
+        // "what the system watches for" grid can never name the same signal
+        // two different ways.
+        foreach (\App\Services\IntegrityService::SIGNALS as $s) {
+            if ($s['key'] === $this->kind) {
+                return $s['name'];
+            }
+        }
+
+        return ucfirst(str_replace('_', ' ', (string) $this->kind));
     }
 }

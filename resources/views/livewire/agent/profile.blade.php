@@ -53,7 +53,7 @@
     </section>
 
     <section class="card card-flat">
-        <div class="card-head"><h3>Vehicle and contact</h3></div>
+        <div class="card-head"><h3>Vehicle and capacity</h3></div>
         <div class="card-body col g-14">
             <div class="field">
                 <label class="label">Full name</label>
@@ -93,6 +93,107 @@
                 <span wire:loading.remove wire:target="save">Save changes</span>
                 <span wire:loading wire:target="save">Saving…</span>
             </button>
+        </div>
+    </section>
+
+    {{-- Availability --}}
+    <section class="card">
+        <div class="card-head"><h3>Availability</h3></div>
+        <div class="card-body col g-14">
+            <div class="row g-8 wrap">
+                @foreach ([1 => 'M', 2 => 'T', 3 => 'W', 4 => 'T', 5 => 'F', 6 => 'S', 7 => 'S'] as $n => $letter)
+                    <button class="chip" wire:key="day-{{ $n }}" wire:click="toggleDay({{ $n }})"
+                            aria-pressed="{{ in_array($n, $days, true) ? 'true' : 'false' }}">{{ $letter }}</button>
+                @endforeach
+            </div>
+
+            <div class="grid grid-2" style="gap:12px">
+                <div class="field">
+                    <label class="label">From</label>
+                    <input class="input" type="time" wire:model.blur="from" wire:change="saveHours">
+                    @error('from') <span class="hint t-neg">{{ $message }}</span> @enderror
+                </div>
+                <div class="field">
+                    <label class="label">Until</label>
+                    <input class="input" type="time" wire:model.blur="until" wire:change="saveHours">
+                    @error('until') <span class="hint t-neg">{{ $message }}</span> @enderror
+                </div>
+            </div>
+
+            @foreach ([
+                'accept_offers' => 'Offer me jobs outside my area when they pay well',
+                'weekend_shifts' => 'Include me in weekend rounds',
+            ] as $key => $label)
+                <label class="switch" wire:key="ap-{{ $key }}">
+                    <input type="checkbox" wire:click="toggle('{{ $key }}')" @checked($prefs[$key] ?? false)>
+                    <span class="track"></span>
+                    <span class="small">{{ $label }}</span>
+                </label>
+            @endforeach
+
+            <p class="tiny dim">
+                Availability shapes which jobs you are offered. It does not stop you taking anything
+                on the marketplace — an open job is open to every agent with capacity.
+            </p>
+        </div>
+    </section>
+
+    {{-- Notifications --}}
+    <x-payout-account :account="$account" :banks="$banks" :cycles="$cycles"
+                      :show-payout="$showPayout" :payout-auto="$payoutAuto" />
+
+    <section class="card">
+        <div class="card-head">
+            <h3>Notifications</h3>
+            <a class="small strong" style="color:var(--primary)" href="{{ route('agent.notifications') }}" wire:navigate>Open feed</a>
+        </div>
+        <div class="card-body col g-14">
+            @foreach ([
+                'notify_new_jobs' => 'New jobs near me',
+                'notify_verified' => 'Batch verified at the gate',
+                'notify_payouts' => 'Payout processed',
+            ] as $key => $label)
+                <label class="switch" wire:key="an-{{ $key }}">
+                    <input type="checkbox" wire:click="toggle('{{ $key }}')" @checked($prefs[$key] ?? false)>
+                    <span class="track"></span>
+                    <span class="small">{{ $label }}</span>
+                </label>
+            @endforeach
+        </div>
+    </section>
+
+    {{-- Documents --}}
+    <section class="card">
+        <div class="card-head">
+            <h3>Documents</h3>
+            <span class="badge {{ $agent->kyc_verified_at ? 'badge-green' : 'badge-amber' }}">
+                {{ $agent->kyc_verified_at ? 'KYC verified' : 'KYC pending' }}
+            </span>
+        </div>
+        <ul class="list">
+            @foreach ($docs as $key => $doc)
+                <li>
+                    <div class="item">
+                        <i data-icon="{{ ['id' => 'shield', 'address' => 'pin', 'vehicle' => 'truck', 'scale' => 'scale'][$key] ?? 'file' }}"
+                           class="i i-sm"
+                           style="color:var({{ $doc['status'] === 'verified' ? '--success' : ($doc['status'] === 'missing' ? '--danger' : '--warn') }})"></i>
+                        <span class="grow" style="min-width:0">
+                            <div class="item-title">{{ $doc['label'] }}</div>
+                            @if ($doc['note'])<div class="item-sub truncate">{{ $doc['note'] }}</div>@endif
+                        </span>
+                        <span class="badge {{ $doc['status'] === 'verified' ? 'badge-green' : ($doc['status'] === 'missing' ? 'badge-red' : 'badge-amber') }}">
+                            {{ ucfirst($doc['status']) }}
+                        </span>
+                    </div>
+                </li>
+            @endforeach
+        </ul>
+        <div class="card-body">
+            <p class="tiny dim">
+                Documents are verified by the facility team by hand during the pilot. Uploading
+                replacements from the app is not built yet — send them to
+                <a href="mailto:ops@ecocycle.ng" style="color:var(--primary)">ops@ecocycle.ng</a>.
+            </p>
         </div>
     </section>
 </div>

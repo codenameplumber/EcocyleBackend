@@ -31,8 +31,24 @@
         </div>
     </section>
 
-    <section class="card mb-16">
-        <div class="card-head"><h3>By area</h3><span class="badge">verified kg</span></div>
+    <section class="grid mb-16" style="grid-template-columns:1.4fr 1fr;gap:16px;align-items:start">
+        <div class="card">
+            <div class="card-head">
+                <h3>Generation density</h3>
+                <span class="badge">{{ number_format($total) }} registered</span>
+            </div>
+            <x-map :pins="$pins" :height="300" :legend="false" />
+            <div class="media media-21x9 media-flat media-scrim">
+                <img src="{{ asset('assets/img/city-aerial.jpg') }}" alt="Residential streets in Lagos"
+                     loading="lazy" width="1400" height="800">
+                <div class="media-cap">
+                    <div class="tiny">Lagos cluster · {{ $areas->count() }} areas served</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head"><h3>By area</h3><span class="badge">verified kg</span></div>
         <div class="card-body col g-12">
             @foreach ($areas as $a)
                 <div>
@@ -47,6 +63,7 @@
                 </div>
             @endforeach
         </div>
+    </div>
     </section>
 
     <section class="card">
@@ -70,7 +87,7 @@
                 </tr></thead>
                 <tbody>
                 @forelse ($rows as $h)
-                    <tr>
+                    <tr wire:key="hh-{{ $h->id }}" wire:click="show({{ $h->id }})" style="cursor:pointer">
                         <td><div class="row g-8">
                             <span class="avatar avatar-sm {{ $h->user->avatarVariant() }}">{{ $h->user->initials() }}</span>
                             <span><div class="small strong">{{ $h->name() }}</div>
@@ -98,4 +115,99 @@
         </div>
         <div class="card-foot">{{ $rows->links() }}</div>
     </section>
+    {{-- Household record --}}
+    @if ($open)
+        <div class="scrim" wire:click.self="close">
+            <div class="modal" role="dialog" aria-modal="true">
+                <div class="card-head">
+                    <div class="row g-10">
+                        <span class="avatar {{ $open->user?->avatarVariant() }}">{{ $open->user?->initials() }}</span>
+                        <div>
+                            <h3>{{ $open->name() }}</h3>
+                            <div class="tiny dim mono">{{ $open->code }} · {{ $open->area?->name }}</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-icon btn-quiet" wire:click="close" aria-label="Close">
+                        <i data-icon="close"></i>
+                    </button>
+                </div>
+
+                <div class="card-body">
+                    <div class="grid grid-3 mb-16" style="gap:10px">
+                        <div>
+                            <div class="tiny dim">Avg per pickup</div>
+                            <div class="strong figure-num">{{ number_format($open->averageKg(), 1) }} kg</div>
+                        </div>
+                        <div>
+                            <div class="tiny dim">Predicted next</div>
+                            <div class="strong figure-num" style="color:var(--violet)">
+                                {{ number_format($open->predictedKg(), 1) }} kg
+                            </div>
+                        </div>
+                        <div>
+                            <div class="tiny dim">Rating</div>
+                            <div class="strong figure-num">{{ number_format($open->rating, 1) }} ★</div>
+                        </div>
+                    </div>
+
+                    @if (count($openTrend) > 1)
+                        <svg class="chart" data-chart="bars" data-height="150"
+                             data-values="{{ implode(',', $openTrend) }}"
+                             data-labels="{{ implode(',', range(1, count($openTrend))) }}"
+                             data-color="var(--primary)"></svg>
+                    @endif
+
+                    <dl class="mt-16 mb-16">
+                        <div class="kv"><dt>Phone</dt><dd>{{ $open->user?->phone ?? '—' }}</dd></div>
+                        <div class="kv"><dt>Household size</dt><dd>{{ $open->size }} people</dd></div>
+                        <div class="kv"><dt>Frequency</dt><dd>{{ $open->frequency }}</dd></div>
+                        <div class="kv"><dt>Usual stream</dt><dd>{{ $open->defaultCategory?->label ?? '—' }}</dd></div>
+                        <div class="kv">
+                            <dt>Coordinates</dt>
+                            <dd class="mono">
+                                {{ $open->lat ? number_format($open->lat, 5) : '—' }},
+                                {{ $open->lng ? number_format($open->lng, 5) : '—' }}
+                            </dd>
+                        </div>
+                        <div class="kv"><dt>Registered</dt><dd>{{ $open->created_at?->diffForHumans() }}</dd></div>
+                        <div class="kv">
+                            <dt>Wallet balance</dt>
+                            <dd class="strong figure-num">₦{{ number_format($open->balance(), 2) }}</dd>
+                        </div>
+                        <div class="kv">
+                            <dt>Status</dt>
+                            <dd><span class="badge {{ $open->status === 'active' ? 'badge-green' : 'badge-amber' }}">{{ ucfirst($open->status) }}</span></dd>
+                        </div>
+                    </dl>
+
+                    <h4 class="mb-10">Recent batches</h4>
+                    @if ($openBatches->isNotEmpty())
+                        <ul class="list" style="border:1px solid var(--border);border-radius:var(--r-md)">
+                            @foreach ($openBatches as $b)
+                                <li wire:key="ob-{{ $b->id }}">
+                                    <a class="item" href="/b/{{ $b->code }}" wire:navigate>
+                                        <span class="grow" style="min-width:0">
+                                            <div class="small strong mono">{{ $b->code }}</div>
+                                            <div class="tiny dim">
+                                                {{ $b->requested_at?->diffForHumans(short: true) }} ·
+                                                {{ $b->effectiveCategory()?->label }}
+                                            </div>
+                                        </span>
+                                        <span class="item-end">
+                                            <div class="small strong figure-num">
+                                                {{ number_format((float) ($b->verified_kg ?? $b->expected_kg ?? 0), 1) }} kg
+                                            </div>
+                                            <span class="st {{ $b->status->cssClass() }}">{{ $b->status->label() }}</span>
+                                        </span>
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @else
+                        <p class="small muted">Nothing collected from this household yet.</p>
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

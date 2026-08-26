@@ -142,6 +142,61 @@
         </ul>
     </section>
 
+    {{-- Your impact --}}
+    <section class="card card-pad">
+        <div class="block-head"><h3>Your impact</h3><span class="badge badge-green">All time</span></div>
+
+        @if (count($trend) > 1)
+            <div class="between mb-8">
+                <span class="tiny dim">Verified weight per collection</span>
+                <span class="tiny dim">Last {{ count($trend) }}</span>
+            </div>
+            <svg class="chart mb-16" data-chart="bars" data-height="110"
+                 data-values="{{ implode(',', $trend) }}"
+                 data-labels="{{ implode(',', range(1, count($trend))) }}"
+                 data-color="var(--primary)"></svg>
+        @endif
+
+        <div class="grid grid-keep-3" style="gap:12px">
+            <div>
+                <div class="stat-value figure-num" style="font-size:20px">{{ number_format($lifetimeKg, 0) }}<small>kg</small></div>
+                <div class="tiny dim">Diverted from landfill</div>
+            </div>
+            <div>
+                <div class="stat-value figure-num" style="font-size:20px">{{ number_format($biogasM3, 0) }}<small>m³</small></div>
+                <div class="tiny dim">Biogas generated</div>
+            </div>
+            <div>
+                <div class="stat-value figure-num" style="font-size:20px">{{ number_format($co2eKg / 1000, 1) }}<small>t</small></div>
+                <div class="tiny dim">CO₂e avoided</div>
+            </div>
+        </div>
+
+        @if ($mix->isNotEmpty())
+            <div class="mt-16">
+                <div class="between mb-8">
+                    <span class="tiny dim">Your waste mix</span>
+                    <span class="tiny dim">Last 90 days</span>
+                </div>
+                <div class="mixbar">
+                    @foreach ($mix as $m)
+                        <span style="width:{{ $m->kg / $mixTotal * 100 }}%;background:{{ $m->color }}"
+                              title="{{ $m->label }}"></span>
+                    @endforeach
+                </div>
+                <div class="row wrap g-12 mt-10">
+                    @foreach ($mix as $m)
+                        <span class="row g-6 tiny">
+                            <span style="width:9px;height:9px;border-radius:2px;background:{{ $m->color }}"></span>
+                            {{ $m->label }}
+                            <span class="dim figure-num">{{ number_format($m->kg / $mixTotal * 100, 1) }}%</span>
+                        </span>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+    </section>
+
     {{-- Where it goes --}}
     <section class="card card-flat" style="overflow:hidden">
         <div class="media media-16x9 media-flat media-scrim">

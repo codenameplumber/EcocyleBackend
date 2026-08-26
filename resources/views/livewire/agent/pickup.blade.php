@@ -13,6 +13,32 @@
 
     {{-- 1 · Travel --}}
     @if ($stage === 1)
+        @if ($travelPins)
+            <section class="card" style="overflow:hidden">
+                <x-map :pins="$travelPins" :height="220" :legend="false"
+                       :note="$distanceKm !== null ? $distanceKm.' km' : null" />
+                <div class="card-body">
+                    <div class="between">
+                        <div>
+                            <div class="item-title">
+                                @if ($distanceKm !== null)
+                                    {{ $distanceKm }} km · about {{ max(1, (int) round($distanceKm * 5)) }} minutes
+                                @else
+                                    Head to the pickup point
+                                @endif
+                            </div>
+                            <div class="item-sub">{{ $household->address ?? $household->area?->name }}</div>
+                        </div>
+                        @if ($household->user?->phone)
+                            <a class="btn btn-sm btn-ghost" href="tel:{{ $household->user->phone }}">
+                                <i data-icon="phone" class="i i-sm"></i> Call
+                            </a>
+                        @endif
+                    </div>
+                </div>
+            </section>
+        @endif
+
         <section class="card card-flat">
             <div class="card-head"><h3>Household</h3><span class="badge">{{ $household->rating }} ★</span></div>
             <div class="card-body">
@@ -70,14 +96,30 @@
     {{-- 2 · Arrive --}}
     @if ($stage === 2)
         <section class="card card-flat">
-            <div class="card-body center" style="padding:34px 20px">
+            <div class="card-head"><h3>Confirm arrival</h3><span class="badge badge-blue">GPS recorded</span></div>
+            @if ($pickupPin)
+                <x-map :pins="$pickupPin" :height="160" :legend="false" />
+            @endif
+            <div class="card-body center" style="padding:26px 20px">
                 <span class="qa-ic" style="width:60px;height:60px;margin:0 auto;border-radius:18px">
                     <i data-icon="pin" class="i i-xl"></i>
                 </span>
                 <h2 class="mt-16">You have arrived</h2>
                 <p class="small muted mt-4">Confirm you are at {{ $household->name() }}'s pickup point.</p>
+                <p class="tiny dim mt-10">
+                    Your coordinates are recorded with the batch. A confirmation more than 300 m from
+                    the registered address raises a case for review — it does not hold your payment.
+                </p>
             </div>
         </section>
+
+        <div class="callout">
+            <i data-icon="info" class="i i-sm"></i>
+            <div>
+                <strong>Household not available?</strong> Call first. If nobody answers, leave the job
+                and it returns to the marketplace rather than counting against you.
+            </div>
+        </div>
     @endif
 
     {{-- 3 · Tag --}}
@@ -104,7 +146,10 @@
     {{-- 4 · Weigh --}}
     @if ($stage === 4)
         <section class="card card-flat">
-            <div class="card-head"><h3>Weigh and declare</h3></div>
+            <div class="card-head">
+                <h3>Declare the weight</h3>
+                <span class="badge">the scale decides later</span>
+            </div>
             <div class="card-body col g-14">
                 <div class="field">
                     <label class="label">Declared weight</label>
@@ -139,7 +184,7 @@
                 </div>
 
                 <div class="field">
-                    <label class="label">Photograph of the load</label>
+                    <label class="label">Photograph the waste</label>
                     <input type="file" class="input" accept="image/*" capture="environment" wire:model="photo">
                     <span class="hint">Used as evidence at inspection, and to pre-estimate composition.</span>
                     @error('photo') <span class="hint t-neg">{{ $message }}</span> @enderror

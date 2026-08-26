@@ -64,8 +64,83 @@
         </div>
     </section>
 
+    {{-- Who the settled value went to --}}
+    @php($splitTotal = max(0.01, collect($splitBar)->sum('value')))
     <section class="card mb-16">
-        <div class="card-head"><h3>Payout queue</h3><span class="badge">{{ $payouts->count() }}</span></div>
+        <div class="card-head"><h3>Where settled value went</h3><span class="badge">all time</span></div>
+        <div class="card-body">
+            <div class="mixbar">
+                @foreach ($splitBar as $seg)
+                    <span style="width:{{ $seg['value'] / $splitTotal * 100 }}%;background:{{ $seg['color'] }}"
+                          title="{{ $seg['label'] }}"></span>
+                @endforeach
+            </div>
+            <div class="row wrap g-16 mt-12">
+                @foreach ($splitBar as $seg)
+                    <span class="row g-8 small">
+                        <span style="width:9px;height:9px;border-radius:2px;background:{{ $seg['color'] }}"></span>
+                        {{ $seg['label'] }}
+                        <span class="strong figure-num">₦{{ number_format($seg['value'], 2) }}</span>
+                        <span class="dim">({{ number_format($seg['value'] / $splitTotal * 100, 1) }}%)</span>
+                    </span>
+                @endforeach
+            </div>
+            <p class="tiny dim mt-12">
+                The 60/40 split is applied per batch, so this settles at 60/40 overall only because
+                every batch did. A drift here would mean a batch settled on the wrong shares.
+            </p>
+        </div>
+    </section>
+
+    {{-- Settlement over time --}}
+    <section class="card mb-16">
+        <div class="card-head">
+            <h3>Settlement value over time</h3>
+            @if ($settlementSeries['delta'] !== null)
+                <span class="badge {{ $settlementSeries['delta'] >= 0 ? 'badge-green' : 'badge-amber' }}">
+                    {{ $settlementSeries['delta'] >= 0 ? '+' : '' }}{{ number_format($settlementSeries['delta'], 1) }}%
+                </span>
+            @else
+                <span class="badge">14 days</span>
+            @endif
+        </div>
+        <div class="card-body">
+            <svg class="chart" data-chart="area" data-height="200"
+                 data-values="{{ implode(',', $settlementSeries['values']) }}"
+                 data-labels="{{ implode(',', $settlementSeries['labels']) }}"></svg>
+        </div>
+        <div class="card-foot">
+            <div class="grid grid-3">
+                <div>
+                    <div class="tiny dim">Paid to households</div>
+                    <div class="strong figure-num">₦{{ number_format($toHouseholds, 0) }}</div>
+                </div>
+                <div>
+                    <div class="tiny dim">Paid to agents</div>
+                    <div class="strong figure-num">₦{{ number_format($toAgents, 0) }}</div>
+                </div>
+                <div>
+                    <div class="tiny dim">Held for review</div>
+                    <div class="strong figure-num {{ $held > 0 ? 't-warn' : '' }}">₦{{ number_format($held, 0) }}</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- Settlement queue --}}
+    <section class="card mb-16">
+        <div class="card-head">
+            <h3>Settlement queue</h3>
+            <div class="row g-10">
+                <div class="btn-group">
+                    @foreach (['all' => 'All', 'pending' => 'Pending', 'held' => 'Held', 'paid' => 'Paid'] as $k => $label)
+                        <button wire:click="setStatus('{{ $k }}')"
+                                aria-selected="{{ $status === $k ? 'true' : 'false' }}">{{ $label }}</button>
+                    @endforeach
+                </div>
+                <span class="badge">{{ $payouts->total() }}</span>
+            </div>
+        </div>
         <div class="table-wrap">
             <table class="table">
                 <thead><tr>
@@ -101,6 +176,9 @@
                 </tbody>
             </table>
         </div>
+        @if ($payouts->hasPages())
+            <div class="card-foot">{{ $payouts->links() }}</div>
+        @endif
     </section>
 
     <section class="card">

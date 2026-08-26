@@ -11,6 +11,7 @@
             ['batches',    'console.batches',    'package', 'Batches',        null],
         ],
         'Facility' => [
+            ['gate',       'console.gate',       'truck',   'Weighbridge',    \App\Models\WasteBatch::where('status', 'IN_TRANSIT')->count()],
             ['inspection', 'console.inspection', 'inspect', 'Inspection',     \App\Models\WasteBatch::awaitingInspection()->count()],
             ['processing', 'console.processing', 'factory', 'Processing',     null],
         ],
@@ -49,7 +50,7 @@
                             <i data-icon="{{ $icon }}"></i>
                             <span class="grow truncate">{{ $label }}</span>
                             @if ($count)
-                                <span class="nav-count {{ in_array($id, ['inspection','integrity']) ? 'hot' : '' }}">{{ $count }}</span>
+                                <span class="nav-count {{ in_array($id, ['gate','inspection','integrity']) ? 'hot' : '' }}">{{ $count }}</span>
                             @endif
                         </a>
                     @endforeach

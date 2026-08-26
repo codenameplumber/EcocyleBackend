@@ -15,6 +15,7 @@ use App\Models\WasteCategory;
 use App\Services\IntegrityService;
 use App\Services\LedgerService;
 use App\Services\SettlementService;
+use Database\Seeders\Support\TrailBuilder;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -54,6 +55,9 @@ class NetworkSeeder extends Seeder
         'Odukoya','Nwankwo','Ajayi','Igwe','Fashola','Osagie','Ogbonna','Yakubu','Alabi','Nweke',
     ];
 
+    /** agent id => how far their declarations drift from the scale, in percent */
+    private array $honesty = [];
+
     public function run(): void
     {
         $settlement = app(SettlementService::class);
@@ -75,11 +79,27 @@ class NetworkSeeder extends Seeder
         $households = $this->makeHouseholds($areas, $categories);
         $agents     = $this->makeAgents($areas);
 
+        // Most collectors are accurate. A few are sloppy and a couple are not
+        // honest -- which is the whole point of keeping the variance.
+        foreach ($agents as $i => $a) {
+            $this->honesty[$a->id] = match (true) {
+                $i % 20 === 0 => ['bias' => -11.0, 'spread' => 5.0],   // 5%  dishonest
+                $i % 7 === 0  => ['bias' => -4.0,  'spread' => 4.0],   // ~14% sloppy
+                default       => ['bias' => -1.0,  'spread' => 2.0],   // the rest
+            };
+        }
+
         $this->command->info('  ' . count($households) . ' households, ' . count($agents) . ' agents');
 
         $made = $this->makeHistory($households, $agents, $categories, $facility, $settlement, $integrity);
 
         $this->command->info("  {$made} batches across " . self::DAYS . ' days');
+
+        // Scores are derived from the weighing history, so they can only be
+        // computed once that history exists.
+        foreach ($agents as $a) {
+            $integrity->refreshAgentScore($a);
+        }
 
         $this->makePayouts($ledger, $households, $agents);
 
@@ -210,13 +230,14 @@ class NetworkSeeder extends Seeder
                 }
 
                 $agent = $agents[array_rand($agents)];
-                $category = $categories->random();
+                $category = $this->pickCategory($categories);
 
                 $expected = round(random_int(30, 420) / 10, 1);
                 // Agents declare a little high more often than a little low.
                 $collected = round($expected * (0.9 + random_int(0, 350) / 1000), 1);
 
                 $requestedAt = $date->copy()->setTime(random_int(6, 18), random_int(0, 59));
+                $pickup = $this->pickupPoint($household);
 
                 $batch = WasteBatch::create([
                     'ulid' => (string) Str::ulid(),
@@ -226,8 +247,8 @@ class NetworkSeeder extends Seeder
                     'waste_category_id' => $category->id,
                     'status' => BatchStatus::Requested,
                     'expected_kg' => $expected,
-                    'pickup_lat' => $household->lat,
-                    'pickup_lng' => $household->lng,
+                    'pickup_lat' => $pickup[0],
+                    'pickup_lng' => $pickup[1],
                     'requested_at' => $requestedAt,
                     'window_end' => $requestedAt->copy()->addHours(random_int(4, 48)),
                 ]);
@@ -269,20 +290,20 @@ class NetworkSeeder extends Seeder
         $attrs = ['status' => $target->value];
 
         $attrs['available_at'] = $t = $t->copy()->addMinutes(random_int(2, 40));
-        if ($step < 2) { $batch->forceFill($attrs)->save(); return; }
+        if ($step < 2) { $this->commit($batch, $attrs); return; }
 
-        if ($target === BatchStatus::Available) { $batch->forceFill($attrs)->save(); return; }
+        if ($target === BatchStatus::Available) { $this->commit($batch, $attrs); return; }
 
         $attrs['accepted_at'] = $t = $t->copy()->addMinutes(random_int(5, 180));
         $attrs['agent_id'] = $agent->id;
-        if ($target === BatchStatus::Accepted) { $batch->forceFill($attrs)->save(); return; }
+        if ($target === BatchStatus::Accepted) { $this->commit($batch, $attrs); return; }
 
         $attrs['collected_at'] = $t = $t->copy()->addMinutes(random_int(20, 240));
         $attrs['collected_kg'] = $collected;
-        if ($target === BatchStatus::Collected) { $batch->forceFill($attrs)->save(); return; }
+        if ($target === BatchStatus::Collected) { $this->commit($batch, $attrs); return; }
 
         $attrs['in_transit_at'] = $t = $t->copy()->addMinutes(random_int(5, 90));
-        if ($target === BatchStatus::InTransit) { $batch->forceFill($attrs)->save(); return; }
+        if ($target === BatchStatus::InTransit) { $this->commit($batch, $attrs); return; }
 
         // Group arrivals into one weighbridge event per agent per day.
         $key = $agent->id . ':' . $t->toDateString();
@@ -299,13 +320,16 @@ class NetworkSeeder extends Seeder
         $attrs['delivery_id'] = $deliveryPool[$key];
         $attrs['facility_id'] = $facility->id;
         $attrs['received_at'] = $t = $t->copy()->addMinutes(random_int(10, 120));
-        if ($target === BatchStatus::Received) { $batch->forceFill($attrs)->save(); return; }
+        if ($target === BatchStatus::Received) { $this->commit($batch, $attrs); return; }
 
         $attrs['inspecting_at'] = $t = $t->copy()->addMinutes(random_int(5, 90));
-        if ($target === BatchStatus::Inspecting) { $batch->forceFill($attrs)->save(); return; }
+        if ($target === BatchStatus::Inspecting) { $this->commit($batch, $attrs); return; }
 
-        // The scale reads a little under the declaration far more often than over.
-        $verified = round($collected * (0.86 + random_int(0, 220) / 1000), 1);
+        // The scale reads against this agent's own accuracy profile, so the
+        // flags that come out the other end land on the same few collectors.
+        $h = $this->honesty[$agent->id] ?? ['bias' => -1.0, 'spread' => 2.0];
+        $drift = $h['bias'] + (random_int(-1000, 1000) / 1000) * $h['spread'];
+        $verified = max(0.1, round($collected * (1 + $drift / 100), 1));
 
         if ($target === BatchStatus::Rejected) {
             $attrs['rejected_at'] = $t->copy()->addMinutes(random_int(3, 40));
@@ -316,7 +340,7 @@ class NetworkSeeder extends Seeder
                 'Spoiled beyond processing window',
             ][random_int(0, 3)];
             $attrs['grade'] = 'D';
-            $batch->forceFill($attrs)->save();
+            $this->commit($batch, $attrs);
 
             return;
         }
@@ -325,13 +349,13 @@ class NetworkSeeder extends Seeder
         $attrs['verified_kg'] = $verified;
         $attrs['grade'] = ['A', 'A', 'B', 'B', 'C'][random_int(0, 4)];
         $attrs['confirmed_category_id'] = $batch->waste_category_id;
-        if ($target === BatchStatus::Verified) { $batch->forceFill($attrs)->save(); return; }
+        if ($target === BatchStatus::Verified) { $this->commit($batch, $attrs); return; }
 
         $attrs['processing_at'] = $t = $t->copy()->addHours(random_int(1, 20));
-        if ($target === BatchStatus::Processing) { $batch->forceFill($attrs)->save(); return; }
+        if ($target === BatchStatus::Processing) { $this->commit($batch, $attrs); return; }
 
         $attrs['processed_at'] = $t->copy()->addHours(random_int(2, 26));
-        $batch->forceFill($attrs)->save();
+        $this->commit($batch, $attrs);
     }
 
     // -------------------------------------------------------------- payouts
@@ -364,6 +388,70 @@ class NetworkSeeder extends Seeder
     }
 
     // ---------------------------------------------------------------- utils
+
+    /**
+     * Where the agent's phone said the pickup happened.
+     *
+     * A confirmation is never exactly on the registered pin: handsets drift and
+     * the bags are usually at the gate rather than the door. Most land within a
+     * street's width; a small tail lands nowhere near, which is the case the
+     * integrity screen exists to catch.
+     *
+     * @return array{0: float, 1: float}
+     */
+    /**
+     * Save a batch's stamped state, then rebuild the audit trail that goes with
+     * it. See TrailBuilder for why the trail is derived rather than replayed.
+     *
+     * @param  array<string, mixed>  $attrs
+     */
+    private function commit(WasteBatch $batch, array $attrs): void
+    {
+        $batch->forceFill($attrs)->save();
+
+        TrailBuilder::rebuild($batch);
+    }
+
+    /**
+     * Weighted stream selection.
+     *
+     * Roughly the composition Lagos household waste actually has: organics
+     * dominate the weight, the high-rate streams are a thin slice. Picking
+     * uniformly would make every stream about a seventh of tonnage and quietly
+     * invert the margin picture the analytics screen is meant to show.
+     */
+    private function pickCategory($categories)
+    {
+        static $weights = [
+            'organic' => 52, 'mixed' => 14, 'paper' => 12,
+            'plastic' => 13, 'glass' => 5, 'metal' => 3, 'ewaste' => 1,
+        ];
+
+        $roll = random_int(1, 100);
+        $running = 0;
+
+        foreach ($weights as $key => $w) {
+            $running += $w;
+            if ($roll <= $running) {
+                if ($hit = $categories->firstWhere('key', $key)) {
+                    return $hit;
+                }
+            }
+        }
+
+        return $categories->random();
+    }
+
+    private function pickupPoint($household): array
+    {
+        // 0.0018 degrees is roughly 200 m at this latitude, 0.00005 about 5 m.
+        $spread = random_int(1, 100) > 96 ? 180 : 5;
+
+        return [
+            round((float) $household->lat + random_int(-$spread, $spread) / 10000, 7),
+            round((float) $household->lng + random_int(-$spread, $spread) / 10000, 7),
+        ];
+    }
 
     private function name(int $i): string
     {

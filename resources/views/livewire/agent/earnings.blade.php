@@ -80,4 +80,69 @@
             </ul>
         </section>
     @endif
+    {{-- Find a settlement --}}
+    <section class="card card-pad">
+        <div class="field">
+            <label class="label">Find a batch</label>
+            <div class="input-group">
+                <i data-icon="search" class="i i-sm"></i>
+                <input class="input mono" wire:model.live.debounce.300ms="q" placeholder="EC-W-2026-…">
+            </div>
+            <span class="hint">Search your own collections by tag code or household name.</span>
+        </div>
+    </section>
+
+    {{-- Payout schedule --}}
+    <section class="card">
+        <div class="card-head">
+            <h3>Payout schedule</h3>
+            <a class="btn btn-sm btn-quiet" href="{{ route('agent.profile') }}#payout">Change</a>
+        </div>
+        <div class="card-body">
+            <dl>
+                <div class="kv"><dt>Cycle</dt><dd>{{ $account['cycle'] }}</dd></div>
+                <div class="kv">
+                    <dt>Account</dt>
+                    <dd>
+                        @if ($account['bank'])
+                            {{ $account['bank'] }} · {{ $account['account'] }}
+                        @else
+                            <a style="color:var(--primary);font-weight:600"
+                               href="{{ route('agent.profile') }}#payout">Add an account →</a>
+                        @endif
+                    </dd>
+                </div>
+                <div class="kv">
+                    <dt>Next payout</dt>
+                    <dd>{{ $nextRun->format('l') }} · <span class="figure-num">₦{{ number_format($balance, 2) }}</span></dd>
+                </div>
+                <div class="kv">
+                    <dt>Held for review</dt>
+                    <dd class="{{ $heldTotal > 0 ? 't-warn strong' : 'dim' }} figure-num">₦{{ number_format($heldTotal, 2) }}</dd>
+                </div>
+            </dl>
+
+            @if ($recentPayouts->isNotEmpty())
+                <div class="divider mt-16 mb-12"></div>
+                <div class="tiny dim mb-8">Recent payouts</div>
+                @foreach ($recentPayouts as $p)
+                    <div class="between" style="padding:5px 0" wire:key="apo-{{ $p->id }}">
+                        <span class="small">
+                            <span class="mono">{{ $p->reference }}</span>
+                            <span class="dim">· {{ $p->created_at->format('j M') }}</span>
+                        </span>
+                        <span class="row g-8">
+                            <span class="small strong figure-num">₦{{ number_format((float) $p->amount, 2) }}</span>
+                            <span class="badge {{ $p->status === 'paid' ? 'badge-green' : ($p->status === 'held' ? 'badge-amber' : '') }}">{{ $p->status }}</span>
+                        </span>
+                    </div>
+                @endforeach
+            @endif
+
+            <p class="tiny dim mt-14">
+                Your share is 40% of every batch's verified value. It is credited the moment the gate
+                scale reading is entered, and paid on the next run — a declared weight never moves money.
+            </p>
+        </div>
+    </section>
 </div>

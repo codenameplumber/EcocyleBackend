@@ -105,6 +105,113 @@
                     </div>
                 </div>
 
+                {{-- Classifier --}}
+                @php($cls = $this->batch?->classification)
+                <div class="card">
+                    <div class="card-head">
+                        <div class="row g-8">
+                            <i data-icon="sparkles" class="i i-sm" style="color:var(--violet)"></i>
+                            <h3>Classifier assessment</h3>
+                        </div>
+                        <span class="badge badge-violet">Advisory only</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="grid" style="grid-template-columns:1fr 1.4fr;gap:16px;align-items:start">
+                            <div>
+                                <div class="tiny dim mb-8">From the agent's pickup photograph</div>
+                                @if ($this->batch?->photo_path)
+                                    <div class="media media-4x3 mb-12">
+                                        <img src="{{ Storage::url($this->batch->photo_path) }}"
+                                             alt="Photograph taken by the agent at pickup">
+                                        <span class="media-tag">{{ $this->batch->agent?->code ?? 'agent' }} · at pickup</span>
+                                    </div>
+                                @else
+                                    <div class="empty" style="min-height:150px">
+                                        <span class="empty-icon"><i data-icon="camera" class="i i-lg"></i></span>
+                                        <div class="small strong">No photograph</div>
+                                        <p class="tiny dim">The agent did not attach one at pickup.</p>
+                                    </div>
+                                @endif
+
+                                @if ($cls && ! empty($cls['mix']))
+                                    @php($mixTotal = max(1, array_sum($cls['mix'])))
+                                    <div class="mixbar">
+                                        @foreach ($cls['mix'] as $key => $pct)
+                                            <span style="width:{{ $pct / $mixTotal * 100 }}%;background:var(--c{{ (crc32($key) % 6) + 1 }})"
+                                                  title="{{ ucfirst($key) }}"></span>
+                                        @endforeach
+                                    </div>
+                                    <div class="row wrap g-10 mt-10">
+                                        @foreach ($cls['mix'] as $key => $pct)
+                                            <span class="row g-6 tiny">
+                                                <span style="width:9px;height:9px;border-radius:2px;background:var(--c{{ (crc32($key) % 6) + 1 }})"></span>
+                                                {{ ucfirst($key) }} <span class="dim figure-num">{{ $pct }}%</span>
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+
+                            <div>
+                                @if ($cls)
+                                    <div class="callout callout-ai">
+                                        <i data-icon="brain" class="i i-sm"></i>
+                                        <div>
+                                            <strong>Suggests {{ $cls['suggested'] ?? 'mixed' }}.</strong>
+                                            {{ $cls['note'] ?? 'Composition estimated from the pickup photograph.' }}
+                                            @if (! empty($cls['confidence']))
+                                                Confidence {{ $cls['confidence'] }}%.
+                                            @endif
+                                        </div>
+                                    </div>
+
+                                    @if ($this->disagreement)
+                                        <div class="callout callout-warn mt-10">
+                                            <i data-icon="alert" class="i i-sm"></i>
+                                            <div>
+                                                You have confirmed a different stream to the one suggested
+                                                ({{ $this->disagreement }}). Your decision stands — the disagreement
+                                                is recorded against the batch.
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    @unless ($cls['generated'] ?? false)
+                                        <p class="tiny dim mt-10">
+                                            This is the stored fallback, not a live assessment. Add
+                                            <span class="mono">OPENAI_API_KEY</span> to <span class="mono">.env</span>
+                                            to classify from the photograph.
+                                        </p>
+                                    @endunless
+                                @else
+                                    <p class="small muted">
+                                        Nothing has been classified for this batch yet.
+                                        @unless ($aiEnabled)
+                                            No API key is configured, so this will return the stored default rather
+                                            than reading the photograph.
+                                        @endunless
+                                    </p>
+                                @endif
+
+                                <button class="btn btn-ghost mt-12" wire:click="classify"
+                                        @disabled(! $this->batch?->photo_path)>
+                                    <span wire:loading.remove wire:target="classify">
+                                        <i data-icon="sparkles" class="i i-sm"></i>
+                                        {{ $cls ? 'Re-run the classifier' : 'Run the classifier' }}
+                                    </span>
+                                    <span wire:loading wire:target="classify">Reading the photograph…</span>
+                                </button>
+
+                                <p class="tiny dim mt-10">
+                                    The inspector's decision always overrides this. Disagreements are recorded
+                                    against the batch rather than discarded, because they are the only feedback
+                                    the classifier ever gets.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {{-- Weigh + grade --}}
                 <div class="grid" style="grid-template-columns:1fr 1fr;gap:16px">
                     <div class="card">

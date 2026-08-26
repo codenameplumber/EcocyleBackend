@@ -4,6 +4,37 @@
             <p class="muted">The movement layer, and the trust attached to it.</p></div>
     </div>
 
+    <section class="grid mb-16" style="grid-template-columns:1.4fr 1fr;gap:16px;align-items:start">
+        <div class="card">
+            <div class="card-head">
+                <h3>Agents in the field</h3>
+                <span class="badge {{ $online ? 'badge-green' : '' }}"><span class="dot"></span>{{ $online }} online now</span>
+            </div>
+            <x-map :pins="$pins" :height="320" :legend="false" />
+            <div class="card-foot">
+                <span class="tiny dim">
+                    Positions are the last confirmation each agent's phone sent, not a live track.
+                    An agent offline shows where they were when they last logged a pickup.
+                </span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head"><h3>Fleet mix</h3><span class="badge">by vehicle</span></div>
+            <div class="card-body col g-12">
+                @foreach ($fleet->sortDesc() as $type => $n)
+                    <div wire:key="fleet-{{ Str::slug($type) }}">
+                        <div class="between mb-4">
+                            <span class="small strong">{{ $type }}</span>
+                            <span class="small figure-num">{{ $n }}</span>
+                        </div>
+                        <div class="bar"><span style="width:{{ $agents->count() ? $n / $agents->count() * 100 : 0 }}%"></span></div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </section>
+
     <section class="grid grid-4 mb-16">
         <div class="card stat tone-green">
             <div class="stat-top"><span class="stat-label">Registered</span>
@@ -65,7 +96,7 @@
                     </tr></thead>
                     <tbody>
                     @forelse ($agents as $a)
-                        <tr>
+                        <tr wire:key="ag-{{ $a->id }}" wire:click="show({{ $a->id }})" style="cursor:pointer">
                             <td><div class="row g-8">
                                 <span class="avatar avatar-sm presence {{ $a->is_online ? 'on' : '' }} {{ $a->user->avatarVariant() }}">
                                     {{ $a->user->initials() }}
@@ -96,4 +127,117 @@
             </div>
         </div>
     </section>
+    {{-- Agent record --}}
+    @if ($open)
+        <div class="scrim" wire:click.self="close">
+            <div class="modal" role="dialog" aria-modal="true">
+                <div class="card-head">
+                    <div class="row g-10">
+                        <span class="avatar {{ $open->user?->avatarVariant() }}">{{ $open->user?->initials() }}</span>
+                        <div>
+                            <h3>{{ $open->name() }}</h3>
+                            <div class="tiny dim mono">{{ $open->code }} · {{ $open->operating_area }}</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-icon btn-quiet" wire:click="close" aria-label="Close">
+                        <i data-icon="close"></i>
+                    </button>
+                </div>
+
+                <div class="card-body">
+                    <div class="grid grid-3 mb-16" style="gap:10px">
+                        <div>
+                            <div class="tiny dim">Integrity</div>
+                            <div class="strong figure-num {{ $open->integrity_score < 80 ? 't-warn' : '' }}">
+                                {{ number_format($open->integrity_score, 1) }}
+                            </div>
+                        </div>
+                        <div>
+                            <div class="tiny dim">Weight accuracy</div>
+                            <div class="strong figure-num">{{ number_format($open->weightAccuracy(), 1) }}%</div>
+                        </div>
+                        <div>
+                            <div class="tiny dim">Rating</div>
+                            <div class="strong figure-num">{{ number_format($open->rating, 1) }} ★</div>
+                        </div>
+                    </div>
+
+                    @if (count($openTrend) > 1)
+                        <svg class="chart" data-chart="bars" data-height="150"
+                             data-values="{{ implode(',', $openTrend) }}"
+                             data-labels="{{ implode(',', range(1, count($openTrend))) }}"
+                             data-color="var(--c2)"></svg>
+                        <p class="tiny dim mt-6">Verified weight of the last {{ count($openTrend) }} loads.</p>
+                    @endif
+
+                    <dl class="mt-16 mb-16">
+                        <div class="kv"><dt>Phone</dt><dd>{{ $open->user?->phone ?? '—' }}</dd></div>
+                        <div class="kv"><dt>Vehicle</dt><dd>{{ $open->vehicle_type }} · {{ number_format($open->capacity_kg) }} kg</dd></div>
+                        <div class="kv"><dt>Plate</dt><dd class="mono">{{ $open->plate ?? '—' }}</dd></div>
+                        <div class="kv">
+                            <dt>KYC</dt>
+                            <dd>
+                                @if ($open->kyc_verified_at)
+                                    <span class="badge badge-green">verified {{ $open->kyc_verified_at->diffForHumans() }}</span>
+                                @else
+                                    <span class="badge badge-amber">pending</span>
+                                @endif
+                            </dd>
+                        </div>
+                        <div class="kv"><dt>Trips completed</dt><dd class="figure-num">{{ number_format($open->tripsCompleted()) }}</dd></div>
+                        <div class="kv"><dt>Lifetime collected</dt><dd class="figure-num">{{ number_format((float) $open->batches()->sum('verified_kg'), 1) }} kg</dd></div>
+                        <div class="kv"><dt>Owed now</dt><dd class="strong figure-num">₦{{ number_format($open->balance(), 2) }}</dd></div>
+                        <div class="kv">
+                            <dt>On shift</dt>
+                            <dd>
+                                <span class="badge {{ $open->is_online ? 'badge-green' : '' }}">
+                                    <span class="dot"></span>{{ $open->is_online ? 'online' : 'offline' }}
+                                </span>
+                            </dd>
+                        </div>
+                    </dl>
+
+                    @if ($open->flags->isNotEmpty())
+                        <div class="callout callout-warn mb-14">
+                            <i data-icon="alert" class="i i-sm"></i>
+                            <div>
+                                <strong>{{ $open->flags->count() }} open {{ Str::plural('case', $open->flags->count()) }}.</strong>
+                                {{ $open->flags->first()->detail }}
+                            </div>
+                        </div>
+                    @endif
+
+                    <h4 class="mb-10">Recent collections</h4>
+                    @if ($openBatches->isNotEmpty())
+                        <ul class="list" style="border:1px solid var(--border);border-radius:var(--r-md)">
+                            @foreach ($openBatches as $b)
+                                <li wire:key="ab-{{ $b->id }}">
+                                    <a class="item" href="/b/{{ $b->code }}" wire:navigate>
+                                        <span class="grow" style="min-width:0">
+                                            <div class="small strong mono">{{ $b->code }}</div>
+                                            <div class="tiny dim truncate">
+                                                {{ $b->household?->name() }} · {{ $b->effectiveCategory()?->label }}
+                                            </div>
+                                        </span>
+                                        <span class="item-end">
+                                            <div class="small strong figure-num">
+                                                {{ number_format((float) ($b->verified_kg ?? $b->collected_kg ?? 0), 1) }} kg
+                                            </div>
+                                            <span class="st {{ $b->status->cssClass() }}">{{ $b->status->label() }}</span>
+                                        </span>
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @else
+                        <p class="small muted">This agent has not collected anything yet.</p>
+                    @endif
+                </div>
+
+                <div class="card-foot row" style="justify-content:flex-end">
+                    <a class="btn btn-ghost" href="{{ route('console.integrity') }}" wire:navigate>Open integrity review</a>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

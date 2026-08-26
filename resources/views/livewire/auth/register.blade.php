@@ -49,12 +49,8 @@
                     <input class="input" type="tel" wire:model="phone" autocomplete="tel" placeholder="0803 000 0000">
                     @error('phone') <span class="hint t-neg">{{ $message }}</span> @enderror
                 </div>
-                <div class="field">
-                    <label class="label">Password</label>
-                    <input class="input" type="password" wire:model="password" autocomplete="new-password">
-                    <span class="hint">At least 8 characters.</span>
-                    @error('password') <span class="hint t-neg">{{ $message }}</span> @enderror
-                </div>
+                <x-password-field model="password" autocomplete="new-password"
+                                  hint="At least 8 characters." />
 
                 @if ($role === 'household')
                     <div class="grid grid-keep-2" style="gap:12px">
@@ -102,8 +98,44 @@
                                 <input class="input" type="number" wire:model="capacity">
                                 <span class="input-suffix">kg</span>
                             </div>
+                            @error('capacity') <span class="hint t-neg">{{ $message }}</span> @enderror
                         </div>
                     </div>
+
+                    <div class="field">
+                        <label class="label" for="plate">Vehicle plate</label>
+                        <input class="input mono" id="plate" wire:model="plate"
+                               placeholder="LAG-123-XY" maxlength="16" style="text-transform:uppercase">
+                        <span class="hint">The weighbridge identifies your vehicle by this when you arrive.</span>
+                        @error('plate') <span class="hint t-neg">{{ $message }}</span> @enderror
+                    </div>
+
+                    {{-- Compliance. Uploading is not built during the pilot, but an
+                         applicant should meet this list here rather than as four red
+                         rows on their profile after they have signed up. --}}
+                    <div class="field">
+                        <span class="label">Documents you will need</span>
+                        <div class="foot-note">
+                            <ul style="margin:0;padding-left:18px;line-height:1.9">
+                                @foreach (\App\Models\Agent::DOCUMENT_TYPES as $doc)
+                                    <li class="small">{{ $doc }}</li>
+                                @endforeach
+                            </ul>
+                            <p class="tiny dim mt-10" style="margin-bottom:0">
+                                The facility team verifies these by hand during the pilot. Email them to
+                                <a href="mailto:ops@ecocycle.ng" style="color:var(--primary)">ops@ecocycle.ng</a>
+                                after signing up. You can accept jobs while they are pending; settlements
+                                are paid out once your KYC is verified.
+                            </p>
+                        </div>
+                    </div>
+
+                    <label class="switch">
+                        <input type="checkbox" wire:model="compliance">
+                        <span class="track"></span>
+                        <span class="small muted">I can provide these documents for verification</span>
+                    </label>
+                    @error('compliance') <span class="hint t-neg">{{ $message }}</span> @enderror
                 @endif
             </div>
         </section>
@@ -152,6 +184,18 @@
                 @if ($locateMessage)
                     <div class="callout callout-ok"><i data-icon="ok" class="i i-sm"></i><div>{{ $locateMessage }}</div></div>
                 @endif
+
+                @if ($pins)
+                    <div class="card card-flat mt-16" style="overflow:hidden">
+                        <x-map :pins="$pins" :height="170" :legend="false" />
+                        <div class="card-body">
+                            <p class="tiny dim">
+                                This is the pin you will be matched on. Set it while you are at the
+                                address — agents are routed to these coordinates, not to the text above.
+                            </p>
+                        </div>
+                    </div>
+                @endif
             </div>
         </section>
     @endif
@@ -168,8 +212,25 @@
                     {{ ucfirst($role) }} profile <span class="mono strong">{{ $createdCode }}</span> created.
                 </p>
             </div>
+            <dl class="mt-8">
+                <div class="kv"><dt>Name</dt><dd>{{ $name }}</dd></div>
+                <div class="kv"><dt>Sign in with</dt><dd class="mono">{{ $email }}</dd></div>
+                <div class="kv"><dt>Area</dt><dd>{{ $areas->firstWhere('id', $area_id)?->name ?? '—' }}</dd></div>
+                @if ($role === 'agent')
+                    <div class="kv"><dt>Vehicle</dt><dd>{{ $vehicle }} · {{ number_format($capacity) }} kg</dd></div>
+                @else
+                    <div class="kv"><dt>Usual stream</dt><dd>{{ ucfirst($category) }}</dd></div>
+                @endif
+                <div class="kv">
+                    <dt>Coordinates</dt>
+                    <dd class="mono">
+                        {{ $lat ? number_format($lat, 5) : '—' }}, {{ $lng ? number_format($lng, 5) : '—' }}
+                    </dd>
+                </div>
+            </dl>
+
             <button wire:click="finish" class="btn btn-primary btn-lg btn-block mt-20">
-                Open my {{ $role === 'agent' ? 'dashboard' : 'dashboard' }}
+                Open my dashboard
             </button>
         </section>
     @endif

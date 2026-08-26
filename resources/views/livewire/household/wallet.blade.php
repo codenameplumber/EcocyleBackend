@@ -10,6 +10,88 @@
         </div>
     </section>
 
+    <div class="row g-10">
+        <button class="btn btn-primary grow" wire:click="openWithdraw" @disabled($balance <= 0)>
+            <i data-icon="download" class="i i-sm"></i> Withdraw
+        </button>
+        <button class="btn btn-ghost grow" data-toast="A statement is emailed from the facility on request">
+            <i data-icon="link" class="i i-sm"></i> Statement
+        </button>
+    </div>
+
+    {{-- Monthly earnings --}}
+    <section class="card">
+        <div class="card-head">
+            <h3>Monthly earnings</h3>
+            @if ($monthly['delta'] !== null)
+                <span class="badge {{ $monthly['delta'] >= 0 ? 'badge-green' : 'badge-amber' }}">
+                    {{ $monthly['delta'] >= 0 ? '+' : '' }}{{ number_format($monthly['delta'], 1) }}%
+                </span>
+            @else
+                <span class="badge">8 months</span>
+            @endif
+        </div>
+        <div class="card-body">
+            <svg class="chart" data-chart="area" data-height="170"
+                 data-values="{{ implode(',', $monthly['values']) }}"
+                 data-labels="{{ implode(',', $monthly['labels']) }}"></svg>
+        </div>
+    </section>
+
+    {{-- Payout method --}}
+    <section class="card">
+        <div class="card-head">
+            <h3>Payout method</h3>
+            <a class="btn btn-sm btn-quiet" href="{{ route('app.profile') }}#payout">Change</a>
+        </div>
+        <div class="card-body">
+            @if ($account['bank'])
+                <div class="row g-12">
+                    <span class="qa-ic v2" style="background:var(--info-soft);color:var(--info)">
+                        <i data-icon="cash" class="i i-sm"></i>
+                    </span>
+                    <span class="grow" style="min-width:0">
+                        <div class="small strong">{{ $account['bank'] }} · {{ $account['account'] }}</div>
+                        <div class="tiny dim">{{ auth()->user()->name }} · settles within 24 hours of a payment run</div>
+                    </span>
+                    <span class="badge badge-green">Default</span>
+                </div>
+                <div class="tiny dim mt-14">
+                    {{ $account['auto']
+                        ? 'Paid out automatically once the balance passes ₦' . number_format($account['threshold'], 0) . '.'
+                        : 'Manual — press Withdraw to open a payout.' }}
+                </div>
+            @else
+                <div class="callout callout-warn">
+                    <i data-icon="alert" class="i i-sm"></i>
+                    <div><strong>No payout account on file.</strong> Add one before requesting a withdrawal.</div>
+                </div>
+                {{-- Withdraw refuses without an account, so the refusal has to
+                     lead somewhere rather than just stating the problem. --}}
+                <a class="btn btn-primary btn-block mt-12" href="{{ route('app.profile') }}#payout">
+                    <i data-icon="plus" class="i i-sm"></i> Add a payout account
+                </a>
+            @endif
+
+            @if ($payouts->isNotEmpty())
+                <div class="divider mt-16 mb-12"></div>
+                <div class="tiny dim mb-8">Recent payouts</div>
+                @foreach ($payouts as $p)
+                    <div class="between" style="padding:5px 0" wire:key="po-{{ $p->id }}">
+                        <span class="small">
+                            <span class="mono">{{ $p->reference }}</span>
+                            <span class="dim">· {{ $p->created_at->format('j M') }}</span>
+                        </span>
+                        <span class="row g-8">
+                            <span class="small strong figure-num">₦{{ number_format((float) $p->amount, 2) }}</span>
+                            <span class="badge {{ $p->status === 'paid' ? 'badge-green' : ($p->status === 'held' ? 'badge-amber' : '') }}">{{ $p->status }}</span>
+                        </span>
+                    </div>
+                @endforeach
+            @endif
+        </div>
+    </section>
+
     {{-- How the payment is worked out --}}
     <section class="card card-flat">
         <div class="card-head"><h3>How your payment is worked out</h3></div>
@@ -137,4 +219,66 @@
             @endforelse
         </ul>
     </section>
+    {{-- Withdraw --}}
+    @if ($showWithdraw)
+        <div class="scrim" wire:click.self="$set('showWithdraw', false)">
+            <div class="modal" role="dialog" aria-modal="true">
+                <div class="card-head">
+                    <h3>Withdraw</h3>
+                    <button class="btn btn-icon btn-quiet" wire:click="$set('showWithdraw', false)" aria-label="Close">
+                        <i data-icon="close"></i>
+                    </button>
+                </div>
+                <div class="card-body col g-14">
+                    <div class="grid grid-2" style="gap:12px">
+                        <div>
+                            <div class="tiny dim">Available</div>
+                            <div class="stat-value figure-num" style="font-size:20px">₦{{ number_format($balance, 2) }}</div>
+                        </div>
+                        <div>
+                            <div class="tiny dim">Still pending</div>
+                            <div class="stat-value figure-num" style="font-size:20px">₦{{ number_format($pending, 2) }}</div>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label class="label">Amount</label>
+                        <div class="input-group">
+                            <span class="input-prefix">₦</span>
+                            <input class="input figure-num" value="{{ number_format($balance, 2, '.', '') }}" readonly>
+                        </div>
+                        <span class="hint">
+                            Payouts settle the whole available balance. Splitting one would leave credits
+                            half-attached, and the ledger has no way to express that.
+                        </span>
+                    </div>
+
+                    <div class="field">
+                        <label class="label">Destination</label>
+                        <select class="select" disabled>
+                            <option>
+                                {{ $account['bank'] ? $account['bank'].' · '.$account['account'] : 'No account on file' }}
+                            </option>
+                        </select>
+                        <span class="hint">Change this from your profile.</span>
+                    </div>
+
+                    <div class="callout">
+                        <i data-icon="info" class="i i-sm"></i>
+                        <div class="tiny">
+                            This opens a payout for the next payment run. The money leaves EcoCycle when
+                            the facility marks it paid — usually within 24 hours.
+                        </div>
+                    </div>
+                </div>
+                <div class="card-foot row" style="justify-content:flex-end">
+                    <button class="btn btn-ghost" wire:click="$set('showWithdraw', false)">Cancel</button>
+                    <button class="btn btn-primary" wire:click="requestPayout" @disabled(! $account['bank'])>
+                        <span wire:loading.remove wire:target="requestPayout">Withdraw ₦{{ number_format($balance, 2) }}</span>
+                        <span wire:loading wire:target="requestPayout">Opening…</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

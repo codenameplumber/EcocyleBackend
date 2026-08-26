@@ -5,7 +5,9 @@ namespace App\Livewire\Console;
 use App\Models\Area;
 use App\Models\LedgerEntry;
 use App\Models\WasteBatch;
-use App\Services\ClaudeService;
+use App\Services\OpenAiService;
+use App\Services\ForecastService;
+use App\Services\InsightService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -31,7 +33,7 @@ class Analytics extends Component
         'Where is our margin actually coming from?',
     ];
 
-    public function ask(ClaudeService $ai): void
+    public function ask(OpenAiService $ai): void
     {
         if (trim($this->question) === '') {
             return;
@@ -42,7 +44,7 @@ class Analytics extends Component
         $this->thinking = false;
     }
 
-    public function useSuggestion(string $q, ClaudeService $ai): void
+    public function useSuggestion(string $q, OpenAiService $ai): void
     {
         $this->question = $q;
         $this->ask($ai);
@@ -97,7 +99,61 @@ class Analytics extends Component
         ];
     }
 
-    public function render(ClaudeService $ai)
+    /**
+     * What each intelligence module is, and how it is actually doing.
+     *
+     * No invented accuracy figures: prediction reports its measured error,
+     * matching reports the share of offered jobs that were taken, classification
+     * reports whether a key is configured and how many batches it has graded,
+     * and anomaly detection reports its live caseload.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function modules(ForecastService $forecast, OpenAiService $ai): array
+    {
+        $offered = WasteBatch::whereNotNull('accepted_at')->count();
+        $posted = WasteBatch::whereNotNull('agent_id')->count();
+        $classified = WasteBatch::whereNotNull('classification')->count();
+        $openFlags = \App\Models\IntegrityFlag::open()->count();
+        $accuracy = $forecast->accuracy();
+
+        return [
+            [
+                'icon' => 'trend', 'name' => 'Volume prediction', 'sub' => 'weekday mean, per household',
+                'live' => true,
+                'metric' => $accuracy !== null ? number_format($accuracy, 0) . '% within actual' : 'building history',
+            ],
+            [
+                'icon' => 'target', 'name' => 'Agent–job matching', 'sub' => 'distance, capacity and rating',
+                'live' => true,
+                'metric' => $posted ? number_format($offered / $posted * 100, 0) . '% of offers taken' : 'no offers yet',
+            ],
+            [
+                'icon' => 'route', 'name' => 'Route ordering', 'sub' => 'nearest-next from the agent',
+                'live' => true,
+                'metric' => 'arithmetic, not learned',
+            ],
+            [
+                'icon' => 'camera', 'name' => 'Waste classification', 'sub' => 'from the pickup photograph',
+                'live' => $ai->enabled(),
+                'metric' => $ai->enabled()
+                    ? number_format($classified) . ' batches graded'
+                    : 'no API key configured',
+            ],
+            [
+                'icon' => 'shield', 'name' => 'Variance detection', 'sub' => 'declared against the gate scale',
+                'live' => true,
+                'metric' => $openFlags . ' open ' . str('case')->plural($openFlags),
+            ],
+            [
+                'icon' => 'sparkles', 'name' => 'Standing insights', 'sub' => 'capacity, forecast, yield, coverage',
+                'live' => true,
+                'metric' => 'recomputed every 10 min',
+            ],
+        ];
+    }
+
+    public function render(OpenAiService $ai, ForecastService $forecast, InsightService $insights)
     {
         $days = collect(range(6, 0))->map(fn ($d) => now()->subDays($d));
         $intake = $days->map(fn ($d) => (float) WasteBatch::whereDate('received_at', $d)->sum('collected_kg'));
@@ -113,13 +169,66 @@ class Analytics extends Component
             ->orderByDesc('value')
             ->get();
 
+        // Area performance: volume, growth, households, average pickup and the
+        // rejection rate, all over the same 30-day window.
+        $areas = $this->areaPerformance();
+
+        $predicted = $forecast->week();
+        $predictedTotal = $forecast->weekTotal();
+        $capacity = $forecast->weekCapacity();
+
         return view('livewire.console.analytics', [
             'aiEnabled'  => $ai->enabled(),
+            'forecast'   => $predicted,
+            'forecastTotal' => $predictedTotal,
+            'forecastCapacity' => $capacity,
+            'forecastShortfall' => max(0, $predictedTotal - $capacity),
+            'forecastAccuracy' => $forecast->accuracy(),
+            'dailyCeiling' => $capacity / 6,
+            'hours'      => $forecast->byHour(),
+            'peakHours'  => $forecast->peakHours(),
+            'insights'   => $insights->all(),
+            'areas'      => $areas,
+            'modules'    => $this->modules($forecast, $ai),
             'labels'     => $days->map(fn ($d) => $d->format('D')),
             'intake'     => $intake,
             'margin'     => $margin,
             'marginKg'   => max(0.01, (float) $margin->sum('kg')),
             'marginNgn'  => max(0.01, (float) $margin->sum('value')),
         ])->layoutData(['page' => 'analytics', 'heading' => 'Analytics']);
+    }
+
+    /**
+     * Per-area performance over the last 30 days.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function areaPerformance(): array
+    {
+        $since = now()->subDays(30);
+        $prior = now()->subDays(60);
+
+        $rows = Area::withCount('households')->get()->map(function ($a) use ($since, $prior) {
+            $base = fn () => WasteBatch::whereHas('household', fn ($h) => $h->where('area_id', $a->id));
+
+            $kg = (float) $base()->where('verified_at', '>=', $since)->sum('verified_kg');
+            $was = (float) $base()->whereBetween('verified_at', [$prior, $since])->sum('verified_kg');
+            $picked = $base()->where('verified_at', '>=', $since)->whereNotNull('verified_kg')->count();
+            $total = $base()->where('created_at', '>=', $since)->count();
+            $rejected = $base()->where('created_at', '>=', $since)->where('status', 'REJECTED')->count();
+
+            return [
+                'name' => $a->name,
+                'kg' => $kg,
+                'growth' => $was >= 20 ? ($kg - $was) / $was * 100 : 0.0,
+                'households' => $a->households_count,
+                'avg' => $picked ? $kg / $picked : 0.0,
+                'reject_pct' => $total ? $rejected / $total * 100 : 0.0,
+            ];
+        })->sortByDesc('kg')->values();
+
+        $total = max(0.01, (float) $rows->sum('kg'));
+
+        return $rows->map(fn ($r) => $r + ['share' => $r['kg'] / $total * 100])->all();
     }
 }

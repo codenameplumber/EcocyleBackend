@@ -10,6 +10,29 @@ use Livewire\Component;
 #[Layout('layouts.console')]
 class Pipeline extends Component
 {
+    public ?int $openId = null;
+
+    public function show(int $id): void
+    {
+        $this->openId = $id;
+    }
+
+    public function close(): void
+    {
+        $this->openId = null;
+    }
+
+    /** Everything the sheet renders, eager-loaded so it is one round trip. */
+    public function getOpenBatchProperty(): ?WasteBatch
+    {
+        return $this->openId
+            ? WasteBatch::with([
+                'household.user', 'household.area', 'agent.user', 'category',
+                'confirmedCategory', 'delivery', 'processingRun.line', 'events',
+            ])->find($this->openId)
+            : null;
+    }
+
     public function render()
     {
         $columns = collect(BatchStatus::pipeline())->map(function (BatchStatus $s) {

@@ -1,4 +1,29 @@
-<div class="col g-16">
+<div class="col g-16" data-ec-position>
+
+    {{-- The round, in the order it will be driven. Pin numbers match the list. --}}
+    @if (count($pins) > 1)
+        <section class="card" style="overflow:hidden">
+            <x-map :pins="$pins" :height="250" :legend="false" note="Nearest next" />
+        </section>
+    @endif
+
+    @if ($stops->count() > 1)
+        <div class="ai-card">
+            <div class="between mb-8">
+                <span class="ai-tag"><i data-icon="route" class="i i-sm"></i> Route optimiser</span>
+                <span class="confidence">nearest-next<span class="bar bar-sm" style="width:52px"><span style="width:100%;background:var(--violet)"></span></span></span>
+            </div>
+            <div class="strong" style="font-size:14.5px;color:var(--text)">
+                {{ $stops->count() }} stops ordered over {{ $distance }} km
+            </div>
+            <p class="small muted mt-4">
+                Each stop is the nearest one not yet visited, starting from where you are and ending
+                at the facility. It is arithmetic, not a learned model — which is why the order never
+                surprises you and you can always override it by collecting out of sequence.
+            </p>
+        </div>
+    @endif
+
     <section class="card card-flat">
         <div class="card-body">
             <div class="grid grid-keep-3" style="gap:12px">

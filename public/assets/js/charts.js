@@ -264,7 +264,9 @@
         color: svg.getAttribute('data-color') || undefined,
         labels: labels.length ? labels : undefined,
         height: svg.getAttribute('data-height') ? +svg.getAttribute('data-height') : undefined,
-        compare: svg.getAttribute('data-compare') ? parseList(svg.getAttribute('data-compare')) : undefined
+        compare: svg.getAttribute('data-compare') ? parseList(svg.getAttribute('data-compare')) : undefined,
+        compareColor: svg.getAttribute('data-compare-color') || undefined,
+        gap: svg.getAttribute('data-gap') ? +svg.getAttribute('data-gap') : undefined
       };
       if (!vals.length && type !== 'ring') return;
       if (type === 'sparkline') sparkline(svg, vals, opts);

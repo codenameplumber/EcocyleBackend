@@ -1,0 +1,38 @@
+/* ==========================================================================
+   EcoCycle — app.css
+   Additions made in the Laravel build.
+
+   Kept apart from base/components/layout.css so the prototype's three files stay
+   byte-comparable with the design prototype they were carried over from. Loaded
+   on every surface, after those three, so it can lean on their tokens.
+   ========================================================================== */
+
+/* --- Password field with a reveal toggle ---------------------------------
+   The button sits inside the input's box so the field keeps the same footprint
+   as every other input on the form. */
+.pw-wrap { position: relative; display: block; }
+
+.pw-input { padding-right: 42px; }
+
+/* Never let a browser stack its own reveal control on top of ours. */
+.pw-input::-ms-reveal,
+.pw-input::-ms-clear { display: none; }
+
+.pw-eye {
+  position: absolute; top: 0; right: 0;
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  background: none; border: 0; padding: 0; margin: 0;
+  color: var(--text-3); cursor: pointer;
+  border-radius: var(--r-sm);
+  transition: color var(--fast), background var(--fast);
+}
+.pw-eye:hover { color: var(--text-2); background: var(--surface-3); }
+.pw-eye[aria-pressed="true"] { color: var(--primary); }
+
+/* The toggle is reachable by keyboard through the input it controls, but it
+   still needs a visible ring when focus does land on it. */
+.pw-eye:focus-visible {
+  outline: none; color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}

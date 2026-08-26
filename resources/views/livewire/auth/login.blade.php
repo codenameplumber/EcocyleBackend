@@ -10,16 +10,12 @@
             @error('email') <span class="hint t-neg">{{ $message }}</span> @enderror
         </div>
 
-        <div class="field">
-            <div class="between">
-                <label class="label" for="password">Password</label>
+        <x-password-field model="password" id="password" autocomplete="current-password">
+            <x-slot:action>
                 <a class="tiny" style="color:var(--primary);font-weight:600"
                    href="{{ route('password.request') }}" wire:navigate>Forgot?</a>
-            </div>
-            <input class="input" id="password" type="password" wire:model="password"
-                   autocomplete="current-password">
-            @error('password') <span class="hint t-neg">{{ $message }}</span> @enderror
-        </div>
+            </x-slot:action>
+        </x-password-field>
 
         <label class="switch">
             <input type="checkbox" wire:model="remember">

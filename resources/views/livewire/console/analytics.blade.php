@@ -6,7 +6,7 @@
         </div>
         <div class="row g-10 no-print">
             <span class="badge {{ $aiEnabled ? 'badge-violet' : 'badge-amber' }}">
-                {{ $aiEnabled ? 'Claude connected' : 'No API key — local answers' }}
+                {{ $aiEnabled ? 'OpenAI connected' : 'No API key — local answers' }}
             </span>
         </div>
     </div>
@@ -50,13 +50,168 @@
                     <p style="color:var(--text);line-height:1.6">{{ $answer['answer'] }}</p>
                     @unless ($answer['generated'])
                         <p class="tiny dim mt-8">
-                            No Claude key is configured, so this was assembled locally from the same figures.
-                            Add <span class="mono">ANTHROPIC_API_KEY</span> to <span class="mono">.env</span> for
+                            No OpenAI key is configured, so this was assembled locally from the same figures.
+                            Add <span class="mono">OPENAI_API_KEY</span> to <span class="mono">.env</span> for
                             full natural-language answers.
                         </p>
                     @endunless
                 </div>
             @endif
+        </div>
+    </section>
+
+    {{-- Forecast --}}
+    <section class="grid mb-16" style="grid-template-columns:1.5fr 1fr;gap:16px;align-items:start">
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h3>Seven-day intake forecast</h3>
+                    <p class="tiny dim mt-4">Predicted arrivals against the facility ceiling</p>
+                </div>
+                @if ($forecastAccuracy !== null)
+                    <span class="badge badge-violet">{{ number_format($forecastAccuracy, 0) }}% within actual</span>
+                @else
+                    <span class="badge">building history</span>
+                @endif
+            </div>
+            <div class="card-body">
+                <svg class="chart" data-chart="area" data-height="220"
+                     data-color="var(--violet)"
+                     data-values="{{ collect($forecast)->pluck('kg')->implode(',') }}"
+                     data-compare="{{ collect($forecast)->map(fn () => round($dailyCeiling))->implode(',') }}"
+                     data-compare-color="var(--danger)"
+                     data-labels="{{ collect($forecast)->pluck('label')->implode(',') }}"></svg>
+            </div>
+            <div class="card-foot">
+                <div class="grid grid-3">
+                    <div>
+                        <div class="tiny dim">Predicted total</div>
+                        <div class="strong figure-num">{{ number_format($forecastTotal / 1000, 1) }} t</div>
+                    </div>
+                    <div>
+                        <div class="tiny dim">Line capacity</div>
+                        <div class="strong figure-num">{{ number_format($forecastCapacity / 1000, 1) }} t</div>
+                    </div>
+                    <div>
+                        <div class="tiny dim">{{ $forecastShortfall > 0 ? 'Shortfall' : 'Headroom' }}</div>
+                        <div class="strong figure-num {{ $forecastShortfall > 0 ? 't-warn' : '' }}">
+                            {{ number_format(abs($forecastCapacity - $forecastTotal) / 1000, 1) }} t
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head"><h3>When waste arrives</h3><span class="badge">by hour</span></div>
+            <div class="card-body">
+                <svg class="chart" data-chart="bars" data-height="200" data-gap="2" data-color="var(--c2)"
+                     data-values="{{ implode(',', $hours) }}"
+                     data-labels="{{ collect($hours)->map(fn ($v, $i) => $i % 4 === 0 ? $i.'h' : '')->implode(',') }}"></svg>
+                <p class="tiny dim mt-10">
+                    @if (count($peakHours) === 2)
+                        Arrivals concentrate around {{ $peakHours[0] }}:00 and {{ $peakHours[1] }}:00.
+                        Staffing the inspection bay to match those two windows is where queue time is won.
+                    @else
+                        Not enough arrivals on record yet to find a daily pattern.
+                    @endif
+                </p>
+            </div>
+        </div>
+    </section>
+
+    {{-- Standing insights --}}
+    <section class="mb-16">
+        <div class="between mb-12">
+            <h2>What the system is seeing</h2>
+            <span class="tiny dim">Recomputed every 10 minutes</span>
+        </div>
+        <div class="grid grid-2">
+            @forelse ($insights as $i)
+                <x-insight :insight="$i" />
+            @empty
+                <div class="empty">
+                    <span class="empty-icon"><i data-icon="sparkles" class="i i-lg"></i></span>
+                    <div class="strong">Not enough history</div>
+                    <p class="small dim">Standing insights need a couple of weeks of verified batches.</p>
+                </div>
+            @endforelse
+        </div>
+    </section>
+
+    {{-- Area performance --}}
+    <section class="card mb-16">
+        <div class="card-head"><h3>Area performance</h3><span class="badge">30 days</span></div>
+        <div class="table-wrap">
+            <table class="table">
+                <thead><tr>
+                    <th>Area</th><th class="num">Collected</th><th class="num">Growth</th>
+                    <th>Share of intake</th><th class="num">Households</th>
+                    <th class="num">Avg / pickup</th><th class="num">Rejection</th>
+                </tr></thead>
+                <tbody>
+                    @foreach ($areas as $a)
+                        <tr>
+                            <td class="strong small">{{ $a['name'] }}</td>
+                            <td class="num strong figure-num">{{ number_format($a['kg'], 1) }} kg</td>
+                            <td class="num">
+                                @if (abs($a['growth']) < 0.05)
+                                    <span class="tiny dim">—</span>
+                                @else
+                                    <span class="delta {{ $a['growth'] >= 0 ? 'up' : 'down' }}">
+                                        <i data-icon="{{ $a['growth'] >= 0 ? 'arrowUp' : 'arrowDn' }}" class="i i-sm"></i>{{ number_format(abs($a['growth']), 1) }}%
+                                    </span>
+                                @endif
+                            </td>
+                            <td style="width:180px">
+                                <div class="row g-8">
+                                    <div class="bar grow"><span style="width:{{ number_format($a['share'], 1) }}%"></span></div>
+                                    <span class="tiny dim figure-num" style="width:40px">{{ number_format($a['share'], 1) }}%</span>
+                                </div>
+                            </td>
+                            <td class="num">{{ number_format($a['households']) }}</td>
+                            <td class="num figure-num">{{ number_format($a['avg'], 1) }} kg</td>
+                            <td class="num">
+                                <span class="{{ $a['reject_pct'] > 4 ? 't-warn strong' : '' }}">{{ number_format($a['reject_pct'], 1) }}%</span>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    {{-- Intelligence modules --}}
+    <section class="card mb-16">
+        <div class="card-head">
+            <h3>Intelligence modules</h3>
+            <span class="badge {{ collect($modules)->where('live', true)->count() === count($modules) ? 'badge-green' : 'badge-amber' }}">
+                {{ collect($modules)->where('live', true)->count() }} of {{ count($modules) }} live
+            </span>
+        </div>
+        <div class="card-body">
+            <div class="grid grid-4">
+                @foreach ($modules as $m)
+                    <div class="card card-pad" style="box-shadow:none">
+                        <div class="row g-8 mb-8">
+                            <span class="qa-ic" style="width:30px;height:30px;background:var(--violet-soft);color:var(--violet)">
+                                <i data-icon="{{ $m['icon'] }}" class="i i-sm"></i>
+                            </span>
+                            <span class="badge {{ $m['live'] ? 'badge-green' : 'badge-amber' }}" style="margin-left:auto">
+                                <span class="dot"></span>{{ $m['live'] ? 'live' : 'off' }}
+                            </span>
+                        </div>
+                        <div class="small strong">{{ $m['name'] }}</div>
+                        <div class="tiny dim">{{ $m['sub'] }}</div>
+                        <div class="tiny mt-8" style="color:var(--violet);font-weight:640">{{ $m['metric'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+            <p class="tiny dim mt-14">
+                Every module reads the same records. Prediction and matching are arithmetic over the
+                batch history; classification is the only one that calls a model, and the inspector's
+                decision always overrides it. Nothing here reports a figure it did not measure.
+            </p>
         </div>
     </section>
 

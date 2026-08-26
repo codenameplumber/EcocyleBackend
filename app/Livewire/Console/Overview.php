@@ -4,10 +4,14 @@ namespace App\Livewire\Console;
 
 use App\Enums\BatchStatus;
 use App\Models\Agent;
+use App\Models\Delivery;
+use App\Models\Facility;
+use App\Models\Household;
 use App\Models\IntegrityFlag;
 use App\Models\LedgerEntry;
 use App\Models\ProcessingLine;
 use App\Models\WasteBatch;
+use App\Support\Geo;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -38,6 +42,9 @@ class Overview extends Component
             ->get();
         $mixTotal = max(0.01, (float) $mix->sum('kg'));
 
+        $lines = ProcessingLine::with('category')->get();
+        $dailyCapacity = (float) (Facility::first()?->daily_capacity_kg ?: 9500);
+
         return view('livewire.console.overview', [
             'intakeToday'    => $intakeToday,
             'processedToday' => $processedToday,
@@ -53,12 +60,49 @@ class Overview extends Component
             'chartProcessed' => $processed,
             'mix'            => $mix,
             'mixTotal'       => $mixTotal,
-            'lines'          => ProcessingLine::with('category')->get(),
+            'lines'          => $lines,
+            'dailyCapacity'  => $dailyCapacity,
+            'capacityUsed'   => $dailyCapacity > 0 ? min(100, $intakeToday / $dailyCapacity * 100) : 0,
+            // The single line closest to its ceiling, so the callout can name it
+            // and say by how much rather than warning in general terms.
+            'strainedLine'   => $lines->where('utilisation', '>', 85)->sortByDesc('utilisation')->first(),
+            // Whatever is currently standing on the weighbridge, if anything.
+            'atGate'         => Delivery::with('agent')
+                ->whereIn('status', ['open', 'weighed'])
+                ->latest('created_at')
+                ->first(),
+            'pins'           => $this->pins(),
             'counts'         => collect(BatchStatus::pipeline())
                 ->mapWithKeys(fn ($s) => [$s->value => WasteBatch::where('status', $s->value)->count()]),
             'alerts'         => IntegrityFlag::open()->with(['agent.user', 'batch'])->latest()->limit(5)->get(),
             'latest'         => WasteBatch::with(['household.user', 'agent.user', 'category'])
                 ->latest('created_at')->limit(8)->get(),
         ])->layoutData(['page' => 'overview', 'heading' => 'Overview']);
+    }
+
+    /**
+     * Pins for the live network map: a sample of households for context, every
+     * agent currently on shift, and the plant. Agents are not sampled -- an
+     * operator watching this screen needs all of them.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function pins(): array
+    {
+        $pins = Household::whereNotNull('lat')
+            ->inRandomOrder()
+            ->limit(70)
+            ->get(['lat', 'lng'])
+            ->map(fn ($h) => Geo::pin((float) $h->lat, (float) $h->lng, 'house'))
+            ->all();
+
+        foreach (Agent::where('is_online', true)->whereNotNull('last_lat')->get(['last_lat', 'last_lng']) as $a) {
+            $pins[] = Geo::pin((float) $a->last_lat, (float) $a->last_lng, 'agent', live: true);
+        }
+
+        $f = Facility::first();
+        $pins[] = Geo::pin((float) ($f?->lat ?? 6.5794), (float) ($f?->lng ?? 3.3792), 'plant', label: $f?->name ?? 'Lagos Facility');
+
+        return $pins;
     }
 }

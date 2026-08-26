@@ -83,7 +83,7 @@
         </div>
 
         <div class="card">
-            <div class="card-head"><h3>Verified mix</h3><span class="badge">all time</span></div>
+            <div class="card-head"><h3>Waste mix</h3><span class="badge">all time</span></div>
             <div class="card-body">
                 <div class="mixbar">
                     @foreach ($mix as $m)
@@ -132,26 +132,48 @@
     {{-- Capacity + alerts --}}
     <section class="grid mt-16" style="grid-template-columns:1fr 1fr">
         <div class="card">
-            <div class="card-head"><h3>Line capacity</h3><span class="badge">today</span></div>
+            <div class="card-head">
+                <h3>Capacity today</h3>
+                <span class="badge {{ $capacityUsed > 85 ? 'badge-amber' : '' }}">{{ number_format($capacityUsed, 1) }}% used</span>
+            </div>
             <div class="card-body col g-14">
-                @foreach ($lines as $l)
-                    <div>
-                        <div class="between mb-4">
-                            <span class="tiny dim">{{ $l->name }}</span>
-                            <span class="small strong figure-num">{{ $l->utilisation }}%</span>
-                        </div>
-                        <div class="bar {{ $l->utilisation > 85 ? 'amber' : '' }}">
-                            <span style="width:{{ $l->utilisation }}%"></span>
-                        </div>
-                        <div class="tiny dim mt-4">{{ number_format($l->capacity_kg_day) }} kg/day · {{ $l->note }}</div>
+                <div class="row g-20">
+                    <svg style="width:120px;flex:none" data-chart="ring"
+                         data-value="{{ round($capacityUsed) }}"
+                         data-label="of {{ number_format($dailyCapacity) }} kg"></svg>
+                    <div class="grow col g-12">
+                        @foreach ($lines as $l)
+                            <div>
+                                <div class="between mb-4">
+                                    <span class="tiny dim">{{ $l->name }}</span>
+                                    <span class="small strong figure-num">{{ $l->utilisation }}%</span>
+                                </div>
+                                <div class="bar {{ $l->utilisation > 85 ? 'amber' : '' }}">
+                                    <span style="width:{{ $l->utilisation }}%"></span>
+                                </div>
+                            </div>
+                        @endforeach
                     </div>
-                @endforeach
+                </div>
+
+                @if ($strainedLine)
+                    <div class="callout callout-warn">
+                        <i data-icon="alert" class="i i-sm"></i>
+                        <div>
+                            {{ $strainedLine->name }} is at {{ $strainedLine->utilisation }}% of its
+                            {{ number_format($strainedLine->capacity_kg_day) }} kg/day ceiling. Divert roughly
+                            {{ number_format($strainedLine->capacity_kg_day * ($strainedLine->utilisation - 80) / 100, 0) }} kg
+                            or stage it overnight.
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-head">
-                <h3>Needs attention</h3>
+        <div class="col g-16">
+            <div class="card">
+                <div class="card-head">
+                    <h3>Needs attention</h3>
                 <a class="small strong" style="color:var(--primary)" href="{{ route('console.integrity') }}" wire:navigate>All alerts</a>
             </div>
             <ul class="list">
@@ -178,8 +200,43 @@
                         <p class="small muted">Every batch is inside the variance tolerance.</p>
                     </div></li>
                 @endforelse
-            </ul>
+                </ul>
+            </div>
+
+            {{-- The gate, as the operator on shift sees it. --}}
+            <div class="cam">
+                <div class="media media-16x9">
+                    <img src="{{ asset('assets/img/facility-scale.jpg') }}"
+                         alt="The inbound weighbridge at the facility gate" loading="lazy" width="1000" height="700">
+                    <span class="media-tag">GATE 1 · INBOUND</span>
+                </div>
+                <div class="cam-bar">
+                    <span class="cam-live">LIVE</span>
+                    <span class="sep">·</span>
+                    <span>Weighbridge 1</span>
+                    <span class="grow"></span>
+                    <span class="mono">
+                        @if ($atGate)
+                            {{ $atGate->agent?->code ?? '—' }} · {{ number_format((float) ($atGate->net_kg ?? $atGate->gross_kg ?? 0), 1) }} kg
+                        @else
+                            Gate clear
+                        @endif
+                    </span>
+                </div>
+            </div>
         </div>
+    </section>
+
+    {{-- Live network --}}
+    <section class="card mt-16">
+        <div class="card-head">
+            <h3>Live network</h3>
+            <div class="row g-8">
+                <span class="badge badge-green"><span class="dot"></span>{{ $agentsOnline }} agents online</span>
+                <span class="badge badge-blue">{{ $inTransit }} batches in transit</span>
+            </div>
+        </div>
+        <x-map :pins="$pins" :height="360" />
     </section>
 
     {{-- Latest batches --}}

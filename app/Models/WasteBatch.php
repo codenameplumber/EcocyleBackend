@@ -53,6 +53,8 @@ class WasteBatch extends Model
     public function agent(): BelongsTo     { return $this->belongsTo(Agent::class); }
     public function facility(): BelongsTo  { return $this->belongsTo(Facility::class); }
     public function delivery(): BelongsTo  { return $this->belongsTo(Delivery::class); }
+    public function processingRun(): BelongsTo { return $this->belongsTo(ProcessingRun::class); }
+
     public function events(): HasMany      { return $this->hasMany(BatchEvent::class)->orderBy('created_at'); }
     public function flags(): HasMany       { return $this->hasMany(IntegrityFlag::class); }
     public function ledgerEntries(): HasMany { return $this->hasMany(LedgerEntry::class); }

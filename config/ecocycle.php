@@ -12,9 +12,16 @@ return [
     // A new area opens once this many households register within its radius.
     'area_activation_threshold' => 200,
 
-    'claude' => [
-        'key'   => env('ANTHROPIC_API_KEY'),
-        'model' => env('ANTHROPIC_MODEL', 'claude-opus-5'),
+    'openai' => [
+        'key'          => env('OPENAI_API_KEY'),
+        'organization' => env('OPENAI_ORGANIZATION'),
+
+        // Analytics only phrases figures we already computed, so a small fast
+        // model is the right tool -- and the cheap one.
+        'model'        => env('OPENAI_MODEL', 'gpt-4o-mini'),
+
+        // Classification reads a photograph, which needs a vision model.
+        'vision_model' => env('OPENAI_VISION_MODEL', 'gpt-4o-mini'),
     ],
 
     'facility' => [

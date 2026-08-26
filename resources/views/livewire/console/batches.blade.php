@@ -4,7 +4,35 @@
             <h1>Batch registry</h1>
             <p class="muted">Every tagged batch, doorstep to processing output.</p>
         </div>
+        <button class="btn btn-primary" wire:click="$set('showScan', true)">
+            <i data-icon="scan" class="i i-sm"></i> Scan a tag
+        </button>
     </div>
+
+    @if ($showScan)
+        <div class="scrim" wire:click.self="$set('showScan', false)">
+            <div class="modal" role="dialog" aria-modal="true">
+                <div class="card-head">
+                    <h3>Scan a batch tag</h3>
+                    <button class="btn btn-icon btn-quiet" wire:click="$set('showScan', false)" aria-label="Close">
+                        <i data-icon="close"></i>
+                    </button>
+                </div>
+                <div class="card-body center">
+                    <div style="width:190px;height:190px;margin:0 auto;border:2px dashed var(--border-strong);border-radius:var(--r-md);display:grid;place-items:center">
+                        <i data-icon="scan" class="i i-xl dim"></i>
+                    </div>
+                    <p class="small muted mt-16">Point the handheld at the tag, or type the code.</p>
+                    <input class="input mt-12 mono" wire:model="scanCode" wire:keydown.enter="lookup"
+                           placeholder="EC-W-2026-…" autofocus>
+                </div>
+                <div class="card-foot row" style="justify-content:flex-end">
+                    <button class="btn btn-ghost" wire:click="$set('showScan', false)">Cancel</button>
+                    <button class="btn btn-primary" wire:click="lookup">Look up</button>
+                </div>
+            </div>
+        </div>
+    @endif
 
     <section class="grid grid-4 mb-16">
         <div class="card stat tone-green">
@@ -67,7 +95,7 @@
                 </tr></thead>
                 <tbody>
                 @forelse ($batches as $b)
-                    <tr>
+                    <tr wire:key="rb-{{ $b->id }}" wire:click="show({{ $b->id }})" style="cursor:pointer">
                         <td class="mono">{{ $b->shortCode() }}</td>
                         <td>
                             <div class="row g-8">
@@ -114,4 +142,12 @@
 
         <div class="card-foot">{{ $batches->links() }}</div>
     </section>
+    {{-- Batch record --}}
+    @if ($this->openBatch)
+        <div class="scrim" wire:click.self="close">
+            <div class="modal" role="dialog" aria-modal="true">
+                <x-batch-sheet :batch="$this->openBatch" />
+            </div>
+        </div>
+    @endif
 </div>

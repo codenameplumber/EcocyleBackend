@@ -5,11 +5,20 @@ namespace App\Livewire\Agent;
 use App\Enums\BatchStatus;
 use App\Services\JobMatcher;
 use Livewire\Attributes\Layout;
+use App\Livewire\Concerns\TracksAgentPosition;
 use Livewire\Component;
 
 #[Layout('layouts.phone')]
 class Today extends Component
 {
+    use TracksAgentPosition;
+
+    /**
+     * Go on or off shift.
+     *
+     * Being offline stops new jobs being offered; it does not hide the
+     * marketplace, and it never abandons a load already on board.
+     */
     public function toggleOnline(): void
     {
         $agent = auth()->user()->agent;
@@ -41,8 +50,30 @@ class Today extends Component
             ->where('verified_at', '>=', now()->startOfWeek())
             ->sum('verified_kg');
 
+        // Seven days of collected weight and what it earned, Monday first, so
+        // the bar chart and the three figures below it agree with each other.
+        $week = collect(range(6, 0))->map(function ($d) use ($agent) {
+            $day = now()->subDays($d);
+
+            return [
+                'label' => $day->isoFormat('dd')[0],
+                'kg' => (float) $agent->batches()->whereDate('collected_at', $day)->sum('collected_kg'),
+            ];
+        });
+
+        $weekStart = now()->startOfWeek();
+        $priorKg = (float) $agent->batches()
+            ->whereBetween('collected_at', [$weekStart->copy()->subWeek(), $weekStart])
+            ->sum('collected_kg');
+        $thisKg = (float) $week->sum('kg');
+
         return view('livewire.agent.today', [
             'agent'       => $agent,
+            'week'        => $week,
+            'weekEarned'  => (float) $agent->batches()
+                ->where('verified_at', '>=', $weekStart)->sum('agent_share'),
+            'weekCollected' => $thisKg,
+            'weekDelta'   => $priorKg > 0 ? ($thisKg - $priorKg) / $priorKg * 100 : null,
             'current'     => $current,
             'earnedToday' => $earnedToday,
             'balance'     => $agent->balance(),

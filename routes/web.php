@@ -11,7 +11,13 @@ use Illuminate\Support\Facades\Route;
 |   /console  facility staff and admin
 */
 
-Route::view('/', 'marketing.home')->name('home');
+// --- public site ------------------------------------------------------------
+Route::controller(App\Http\Controllers\MarketingController::class)->group(function () {
+    Route::get('/', 'home')->name('home');
+    Route::get('/about', 'about')->name('about');
+    Route::get('/facilities', 'facilities')->name('facilities');
+    Route::get('/location', 'location')->name('location');
+});
 
 // --- guest ------------------------------------------------------------------
 Route::middleware('guest')->group(function () {
@@ -25,7 +31,11 @@ Route::post('/logout', function () {
     request()->session()->invalidate();
     request()->session()->regenerateToken();
 
-    return redirect('/');
+    // Back to the sign-in form, not the marketing site. Signing out is almost
+    // always a prelude to signing back in -- often as a different role on a
+    // shared device -- and landing on the public homepage puts the front page
+    // between the person and the thing they came to do.
+    return redirect()->route('login');
 })->name('logout');
 
 // --- household --------------------------------------------------------------
@@ -33,6 +43,8 @@ Route::middleware(['auth', EnsureRole::class . ':household'])->prefix('app')->gr
     Route::get('/', App\Livewire\Household\Home::class)->name('app');
     Route::get('/request', App\Livewire\Household\RequestPickup::class)->name('app.request');
     Route::get('/track', App\Livewire\Household\Track::class)->name('app.track');
+    Route::get('/history', App\Livewire\Household\History::class)->name('app.history');
+    Route::get('/notifications', App\Livewire\Notifications::class)->name('app.notifications');
     Route::get('/wallet', App\Livewire\Household\Wallet::class)->name('app.wallet');
     Route::get('/profile', App\Livewire\Household\Profile::class)->name('app.profile');
 });
@@ -45,6 +57,7 @@ Route::middleware(['auth', EnsureRole::class . ':agent'])->prefix('agent')->grou
     Route::get('/route', App\Livewire\Agent\RoutePlan::class)->name('agent.route');
     Route::get('/earnings', App\Livewire\Agent\Earnings::class)->name('agent.earnings');
     Route::get('/profile', App\Livewire\Agent\Profile::class)->name('agent.profile');
+    Route::get('/notifications', App\Livewire\Notifications::class)->name('agent.notifications');
 });
 
 // --- facility console -------------------------------------------------------
@@ -52,6 +65,7 @@ Route::middleware(['auth', EnsureRole::class . ':staff,admin'])->prefix('console
     Route::get('/', App\Livewire\Console\Overview::class)->name('console');
     Route::get('/pipeline', App\Livewire\Console\Pipeline::class)->name('console.pipeline');
     Route::get('/batches', App\Livewire\Console\Batches::class)->name('console.batches');
+    Route::get('/gate', App\Livewire\Console\Gate::class)->name('console.gate');
     Route::get('/inspection', App\Livewire\Console\Inspection::class)->name('console.inspection');
     Route::get('/processing', App\Livewire\Console\Processing::class)->name('console.processing');
     Route::get('/households', App\Livewire\Console\Households::class)->name('console.households');

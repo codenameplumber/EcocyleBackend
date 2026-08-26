@@ -1,4 +1,4 @@
-<div class="col g-16">
+<div class="col g-16" data-ec-position>
 
     {{-- Shift status --}}
     <section class="hero">
@@ -94,6 +94,84 @@
     @endif
 
     {{-- Nearby jobs --}}
+    {{-- Availability --}}
+    <section class="card card-pad">
+        <div class="between">
+            <div>
+                <div class="small strong">{{ $agent->is_online ? 'On shift' : 'Off shift' }}</div>
+                <div class="tiny dim">
+                    {{ $agent->is_online
+                        ? 'You are being offered jobs near you.'
+                        : 'No new offers while you are off shift.' }}
+                </div>
+            </div>
+            <label class="switch">
+                <input type="checkbox" wire:click="toggleOnline" @checked($agent->is_online)>
+                <span class="track"></span>
+            </label>
+        </div>
+        @if ($remaining < 10)
+            <div class="callout callout-warn mt-14">
+                <i data-icon="alert" class="i i-sm"></i>
+                <div>
+                    Only {{ number_format($remaining, 1) }} kg of capacity left. Deliver what is on
+                    board before taking another job.
+                </div>
+            </div>
+        @endif
+    </section>
+
+    {{-- Best match right now --}}
+    @if ($nearby->isNotEmpty())
+        @php($best = $nearby->first())
+        <div class="ai-card">
+            <div class="between mb-8">
+                <span class="ai-tag"><i data-icon="sparkles" class="i i-sm"></i> Recommended for you</span>
+                <span class="confidence">{{ $best->match_score }}%<span class="bar bar-sm" style="width:52px"><span style="width:{{ $best->match_score }}%;background:var(--violet)"></span></span></span>
+            </div>
+            <div class="strong" style="font-size:14.5px;color:var(--text)">
+                {{ $best->household->name() }} · {{ number_format((float) ($best->expected_kg ?? 0), 1) }} kg
+                {{ $best->effectiveCategory()?->label }}
+            </div>
+            <p class="small muted mt-4">
+                {{ number_format($best->distance_km, 1) }} km away, inside your remaining
+                {{ number_format($remaining, 1) }} kg. Ranked on distance, capacity, stream value and
+                how soon the window closes — not simply proximity.
+            </p>
+        </div>
+    @endif
+
+    {{-- This week --}}
+    <section class="card card-pad">
+        <div class="block-head">
+            <h3>This week</h3>
+            @if ($weekDelta !== null)
+                <span class="badge {{ $weekDelta >= 0 ? 'badge-green' : 'badge-amber' }}">
+                    {{ $weekDelta >= 0 ? '+' : '' }}{{ number_format($weekDelta, 1) }}%
+                </span>
+            @else
+                <span class="badge">first week</span>
+            @endif
+        </div>
+        <svg class="chart" data-chart="bars" data-height="130" data-color="var(--primary)"
+             data-values="{{ $week->pluck('kg')->implode(',') }}"
+             data-labels="{{ $week->pluck('label')->implode(',') }}"></svg>
+        <div class="grid grid-keep-3 mt-14" style="gap:12px">
+            <div>
+                <div class="strong figure-num">₦{{ number_format($weekEarned, 0) }}</div>
+                <div class="tiny dim">Earned</div>
+            </div>
+            <div>
+                <div class="strong figure-num">{{ number_format($weekCollected, 0) }} kg</div>
+                <div class="tiny dim">Collected</div>
+            </div>
+            <div>
+                <div class="strong figure-num">{{ number_format($agent->rating, 1) }} ★</div>
+                <div class="tiny dim">Rating</div>
+            </div>
+        </div>
+    </section>
+
     <section>
         <div class="sec-head mb-12">
             <h3>Jobs near you</h3>

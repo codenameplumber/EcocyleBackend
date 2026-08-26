@@ -3,6 +3,7 @@
 namespace App\Concerns;
 
 use App\Models\LedgerEntry;
+use App\Models\Payout;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 /**
@@ -17,6 +18,12 @@ trait HasLedger
     public function ledgerEntries(): MorphMany
     {
         return $this->morphMany(LedgerEntry::class, 'party');
+    }
+
+    /** Payouts opened against this party, paid or not. */
+    public function payouts(): MorphMany
+    {
+        return $this->morphMany(Payout::class, 'party');
     }
 
     /** Everything credited, minus everything paid out. */

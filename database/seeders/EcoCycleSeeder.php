@@ -15,6 +15,7 @@ use App\Models\WasteBatch;
 use App\Models\WasteCategory;
 use App\Services\IntegrityService;
 use App\Services\SettlementService;
+use Database\Seeders\Support\TrailBuilder;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -193,18 +194,34 @@ class EcoCycleSeeder extends Seeder
         return $out;
     }
 
+    /**
+     * The facility side of the house.
+     *
+     * Staff and Admin both reach /console — the difference is that Admin can act
+     * on settlements and Staff cannot — so both are seeded. Reviewing an
+     * inspector's view of the console is impossible with only an admin account.
+     */
     private function staff(): void
     {
-        User::updateOrCreate(
-            ['email' => 'manager@ecocycle.ng'],
-            [
-                'name' => 'Adaeze Okafor',
-                'password' => Hash::make('password'),
-                'role' => UserRole::Admin,
-                'phone' => '0800 123 4567',
-                'email_verified_at' => now(),
-            ]
-        );
+        $people = [
+            ['manager@ecocycle.ng',   'Adaeze Okafor',    UserRole::Admin, '0800 123 4567'],
+            ['inspector@ecocycle.ng', 'Chukwuemeka Nwosu', UserRole::Staff, '0803 411 2087'],
+            ['gate@ecocycle.ng',      'Halima Yusuf',      UserRole::Staff, '0803 411 2088'],
+            ['lines@ecocycle.ng',     'Tobi Adegboye',     UserRole::Staff, '0803 411 2089'],
+        ];
+
+        foreach ($people as [$email, $name, $role, $phone]) {
+            User::updateOrCreate(
+                ['email' => $email],
+                [
+                    'name' => $name,
+                    'password' => Hash::make('password'),
+                    'role' => $role,
+                    'phone' => $phone,
+                    'email_verified_at' => now(),
+                ]
+            );
+        }
     }
 
     private function batches(array $households, array $agents, array $categories, Facility $facility): void
@@ -237,8 +254,8 @@ class EcoCycleSeeder extends Seeder
                     'collected_kg' => $b['collected_kg'] ?? null,
                     'verified_kg' => $b['verified_kg'] ?? null,
                     'grade' => $b['quality'] ?? null,
-                    'pickup_lat' => $household->lat,
-                    'pickup_lng' => $household->lng,
+                    'pickup_lat' => $this->pickupPoint($household)[0],
+                    'pickup_lng' => $this->pickupPoint($household)[1],
                     'requested_at' => $at($b['created'] ?? null),
                     'accepted_at' => $at($b['accepted_at'] ?? null),
                     'collected_at' => $at($b['collected_at'] ?? null),
@@ -250,6 +267,8 @@ class EcoCycleSeeder extends Seeder
                     'rejection_reason' => $b['reject_reason'] ?? null,
                 ]
             );
+
+            TrailBuilder::rebuild($batch);
 
             // Real settlement, through the real service, so the ledger is real.
             if ($status->isSettleable() && $batch->verified_kg) {
@@ -265,7 +284,7 @@ class EcoCycleSeeder extends Seeder
                 continue;
             }
 
-            WasteBatch::updateOrCreate(
+            $job = WasteBatch::updateOrCreate(
                 ['code' => 'EC-W-' . now()->year . '-J' . substr($j['code'], -5)],
                 [
                     'ulid' => (string) Str::ulid(),
@@ -273,17 +292,40 @@ class EcoCycleSeeder extends Seeder
                     'waste_category_id' => $categories[$j['cat']]->id,
                     'status' => BatchStatus::Available,
                     'expected_kg' => $j['est_kg'],
-                    'pickup_lat' => $household->lat,
-                    'pickup_lng' => $household->lng,
+                    'pickup_lat' => $this->pickupPoint($household)[0],
+                    'pickup_lng' => $this->pickupPoint($household)[1],
                     'requested_at' => now()->subMinutes(random_int(10, 300)),
                     'available_at' => now()->subMinutes(random_int(5, 200)),
                     'window_end' => now()->addHours(random_int(2, 30)),
                 ]
             );
+
+            TrailBuilder::rebuild($job);
         }
     }
 
     /** Deterministic demo addresses so logins are predictable. */
+    /**
+     * Where the agent's phone said the pickup happened.
+     *
+     * A confirmation is never exactly on the registered pin: handsets drift and
+     * the bags are usually at the gate rather than the door. Most land within a
+     * street's width; a small tail lands nowhere near, which is the case the
+     * integrity screen exists to catch.
+     *
+     * @return array{0: float, 1: float}
+     */
+    private function pickupPoint($household): array
+    {
+        // 0.0018 degrees is roughly 200 m at this latitude, 0.00005 about 5 m.
+        $spread = random_int(1, 100) > 96 ? 180 : 5;
+
+        return [
+            round((float) $household->lat + random_int(-$spread, $spread) / 10000, 7),
+            round((float) $household->lng + random_int(-$spread, $spread) / 10000, 7),
+        ];
+    }
+
     private function email(string $name): string
     {
         return Str::slug($name, '.') . '@ecocycle.test';

@@ -106,7 +106,11 @@ class SettlementService
      */
     public function apportionDelivery(\App\Models\Delivery $delivery): void
     {
-        $batches = $delivery->batches()->get();
+        // Order is pinned, not incidental. The last batch in this list absorbs
+        // the rounding remainder, so which batch that is must not depend on
+        // whatever order the database felt like returning -- and the gate's
+        // preview has to be able to reproduce it exactly.
+        $batches = $delivery->batches()->orderBy('id')->get();
         $declaredTotal = (float) $batches->sum('collected_kg');
         $net = (float) $delivery->net_kg;
 

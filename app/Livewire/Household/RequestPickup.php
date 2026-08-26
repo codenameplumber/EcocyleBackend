@@ -7,7 +7,10 @@ use App\Models\WasteBatch;
 use App\Models\WasteCategory;
 use App\Services\BatchCodeGenerator;
 use App\Services\BatchStateMachine;
+use App\Services\QrService;
 use App\Services\SettlementService;
+use App\Models\Facility;
+use App\Support\Geo;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -29,6 +32,9 @@ class RequestPickup extends Component
     public ?float $lat = null;
     public ?float $lng = null;
 
+    /** The batch just created, if any — drives the confirmation sheet. */
+    public ?int $createdId = null;
+
     public function mount(): void
     {
         $household = auth()->user()->household;
@@ -38,11 +44,49 @@ class RequestPickup extends Component
         $this->lng = $household->lng;
     }
 
-    public function setCoords(float $lat, float $lng): void
+    /** Metres of GPS error the browser reported for the pin, if it said. */
+    public ?float $accuracy = null;
+
+    /** True once the coordinates came from the device rather than the file. */
+    public bool $located = false;
+
+    /**
+     * Coordinates pushed up from navigator.geolocation.
+     *
+     * These become the batch's pickup_lat/pickup_lng, which is what JobMatcher
+     * measures every agent against — so this is the difference between a job
+     * ranked from where the waste actually is and one ranked from wherever the
+     * household happened to sign up.
+     */
+    public function setCoords(float $lat, float $lng, ?float $accuracy = null, bool $manual = true): void
     {
+        // Lagos is at roughly 6.5N, 3.4E, but the guard here is only against a
+        // malformed payload -- a household travelling is still a real pickup.
+        if (abs($lat) > 90 || abs($lng) > 180) {
+            $this->dispatch('toast', message: 'That location did not look right', kind: 'warn');
+
+            return;
+        }
+
         $this->lat = round($lat, 7);
         $this->lng = round($lng, 7);
-        $this->dispatch('toast', message: 'Pickup point updated', kind: 'ok');
+        $this->accuracy = $accuracy ? round($accuracy) : null;
+        $this->located = true;
+
+        $this->dispatch('toast', message: 'Pickup point set from your device', kind: 'ok');
+    }
+
+    /** Fall back to the address the household registered with. */
+    public function useRegisteredPoint(): void
+    {
+        $h = auth()->user()->household;
+
+        $this->lat = $h->lat;
+        $this->lng = $h->lng;
+        $this->accuracy = null;
+        $this->located = false;
+
+        $this->dispatch('toast', message: 'Using your registered address', kind: 'ok');
     }
 
     /** Estimate only — the facility scale is what actually settles. */
@@ -96,16 +140,43 @@ class RequestPickup extends Component
         // Straight onto the marketplace so agents can see it.
         $machine->transition($batch, BatchStatus::Available, auth()->user());
 
-        $this->dispatch('toast', message: 'Pickup requested — nearby agents notified', kind: 'ok');
+        // Stay on the screen and show the tag. The batch code is the one thing
+        // the household needs off this flow, and a redirect would take it away
+        // before they had a chance to read it.
+        $this->createdId = $batch->id;
 
-        return $this->redirect(route('app'), navigate: true);
+        $this->dispatch('toast', message: 'Pickup requested — nearby agents notified', kind: 'ok');
+    }
+
+    public function getCreatedProperty(): ?WasteBatch
+    {
+        return $this->createdId ? WasteBatch::find($this->createdId) : null;
     }
 
     public function render()
     {
+        $household = auth()->user()->household;
+        $facility = Facility::first();
+
+        // The point the agent will be sent to. `lat`/`lng` are whatever the
+        // browser's geolocation last reported; otherwise the registered address.
+        $pins = [
+            Geo::pin(
+                (float) ($this->lat ?? $household->lat),
+                (float) ($this->lng ?? $household->lng),
+                'house', live: true, label: 'Pickup point',
+            ),
+            Geo::pin(
+                (float) ($facility?->lat ?? config('ecocycle.facility.lat')),
+                (float) ($facility?->lng ?? config('ecocycle.facility.lng')),
+                'plant', label: 'Facility'
+            ),
+        ];
+
         return view('livewire.household.request-pickup', [
             'categories' => WasteCategory::active()->get(),
-            'household'  => auth()->user()->household,
+            'household'  => $household,
+            'pins'       => $pins,
         ])->layoutData([
             'app' => 'household', 'page' => 'request',
             'heading' => 'Request a pickup', 'sub' => 'Waste is ready for collection',

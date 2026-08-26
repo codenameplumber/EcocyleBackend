@@ -4,11 +4,16 @@ namespace App\Livewire\Agent;
 
 use App\Services\JobMatcher;
 use Livewire\Attributes\Layout;
+use App\Models\Facility;
+use App\Support\Geo;
+use App\Livewire\Concerns\TracksAgentPosition;
 use Livewire\Component;
 
 #[Layout('layouts.phone')]
 class RoutePlan extends Component
 {
+    use TracksAgentPosition;
+
     public function render(JobMatcher $matcher)
     {
         $agent = auth()->user()->agent;
@@ -37,8 +42,33 @@ class RoutePlan extends Component
         }
         $distance += $matcher->distanceKm($lat, $lng, config('ecocycle.facility.lat'), config('ecocycle.facility.lng'));
 
+        // Start pin, then each stop in the order it will actually be driven,
+        // then the plant. The numbers on the pins and the numbers in the list
+        // below are the same ordering, which is the whole point of the screen.
+        $facility = Facility::first();
+        $pins = [];
+
+        if ($agent->last_lat) {
+            $pins[] = Geo::pin((float) $agent->last_lat, (float) $agent->last_lng,
+                'agent', live: true, label: 'Start');
+        }
+
+        foreach ($ordered->values() as $i => $stop) {
+            if ($stop->household?->lat) {
+                $pins[] = Geo::pin((float) $stop->household->lat, (float) $stop->household->lng,
+                    'house', label: (string) ($i + 1));
+            }
+        }
+
+        $pins[] = Geo::pin(
+                (float) ($facility?->lat ?? config('ecocycle.facility.lat')),
+                (float) ($facility?->lng ?? config('ecocycle.facility.lng')),
+                'plant', label: 'Facility'
+            );
+
         return view('livewire.agent.route-plan', [
             'agent'    => $agent,
+            'pins'     => $pins,
             'stops'    => $ordered,
             'load'     => $load,
             'distance' => round($distance, 1),

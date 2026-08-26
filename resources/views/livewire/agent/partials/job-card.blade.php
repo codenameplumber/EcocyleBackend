@@ -54,7 +54,10 @@
                     <div class="tiny dim">Match</div>
                     <div class="small strong" style="color:var(--violet)">{{ $j->match_score }}%</div>
                 </div>
-                <button class="btn btn-primary btn-sm" wire:click="accept({{ $j->id }})"
+                {{-- On the jobs board accepting opens a confirmation; on the
+                     Today screen there is no sheet, so it claims directly. --}}
+                <button class="btn btn-primary btn-sm"
+                        wire:click="{{ ($confirmable ?? false) ? 'ask' : 'accept' }}({{ $j->id }})"
                         wire:loading.attr="disabled" wire:target="accept({{ $j->id }})">
                     <span wire:loading.remove wire:target="accept({{ $j->id }})">Accept</span>
                     <span wire:loading wire:target="accept({{ $j->id }})">…</span>

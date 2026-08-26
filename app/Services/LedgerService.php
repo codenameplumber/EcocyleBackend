@@ -85,12 +85,20 @@ class LedgerService
             $amount = round((float) $entries->sum('amount'), 2);
 
             $payout = Payout::create([
-                'reference'  => 'PY-' . str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT),
+                // Placeholder only. A random reference against a unique column
+                // collides eventually and there is no retry, so the reference is
+                // derived from the row's own id the moment it exists -- unique by
+                // construction, and monotonic, which the bank file prefers.
+                'reference'  => 'PY-NEW-' . \Illuminate\Support\Str::ulid(),
                 'party_type' => $party->getMorphClass(),
                 'party_id'   => $party->getKey(),
                 'amount'     => $amount,
                 'method'     => $method,
                 'status'     => 'pending',
+            ]);
+
+            $payout->update([
+                'reference' => 'PY-' . str_pad((string) $payout->id, 6, '0', STR_PAD_LEFT),
             ]);
 
             // Attaching the credits stops them being paid out a second time.

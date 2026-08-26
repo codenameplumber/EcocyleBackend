@@ -38,6 +38,15 @@
                 @if (! empty($sub))<div class="sub truncate">{{ $sub }}</div>@endif
             </span>
             <button class="btn btn-icon btn-quiet" data-theme-toggle aria-label="Toggle theme"><i data-icon="moon"></i></button>
+            @php($unreadCount = $user->unreadNotifications()->count())
+            <a class="btn btn-icon btn-quiet" style="position:relative"
+               href="{{ $app === 'agent' ? route('agent.notifications') : route('app.notifications') }}"
+               wire:navigate aria-label="Notifications{{ $unreadCount ? ", {$unreadCount} unread" : '' }}">
+                <i data-icon="bell"></i>
+                @if ($unreadCount)
+                    <span class="bn-badge" style="top:2px;right:2px">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
+                @endif
+            </a>
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
                 <button class="btn btn-icon btn-quiet" title="Sign out"><i data-icon="logout"></i></button>

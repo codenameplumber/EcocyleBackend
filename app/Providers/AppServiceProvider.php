@@ -23,7 +23,13 @@ class AppServiceProvider extends ServiceProvider
         // hand. Until they are, fall back to the log driver so a queued
         // notification fails visibly in the log rather than throwing SMTP
         // auth errors all over the queue.
-        if (config('mail.default') === 'smtp' && blank(config('mail.mailers.smtp.username'))) {
+        $unconfigured = match (config('mail.default')) {
+            'smtp'   => blank(config('mail.mailers.smtp.username')),
+            'resend' => blank(config('services.resend.key')),
+            default  => false,
+        };
+
+        if ($unconfigured) {
             config(['mail.default' => 'log']);
         }
     }
