@@ -111,6 +111,7 @@ CACHE_STORE=database
 # Mail — Resend in production
 MAIL_MAILER=resend
 RESEND_KEY=re_xxxxxxxxxxxx
+# RESEND_API_KEY works too — config/services.php reads either name.
 MAIL_FROM_ADDRESS=ops@your-verified-domain.com
 MAIL_FROM_NAME=EcoCycle
 

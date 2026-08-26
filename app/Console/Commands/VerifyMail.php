@@ -55,7 +55,7 @@ class VerifyMail extends Command
             $this->warn('  Falling back to the log driver — the configured transport has no credentials.');
             $this->line('  Mail is written to storage/logs/laravel.log, not delivered.');
             $this->line('  Mailtrap: put MAIL_USERNAME and MAIL_PASSWORD from your inbox into .env.');
-            $this->line('  Resend:   set MAIL_MAILER=resend and RESEND_KEY in .env.');
+            $this->line('  Resend:   set MAIL_MAILER=resend and RESEND_KEY (or RESEND_API_KEY) in .env.');
         }
 
         $batch = WasteBatch::whereNotNull('value_naira')->with('household.user')->first();
@@ -70,7 +70,16 @@ class VerifyMail extends Command
         if ($to = $this->option('to')) {
             // An unsaved User so the notification renders exactly as it would for
             // a real one, but goes wherever the operator asked and touches no row.
-            $recipient = new User(['name' => 'Mail check', 'email' => $to]);
+            //
+            // The role is copied from the household this batch actually belongs
+            // to. Without it the stand-in had a null role and the mail template's
+            // url($notifiable->role->home()) fatalled -- so the one tool built to
+            // prove mail works could not send to an arbitrary address at all.
+            $recipient = new User([
+                'name'  => 'Mail check',
+                'email' => $to,
+                'role'  => $recipient->role,
+            ]);
             $recipient->exists = false;
         }
 

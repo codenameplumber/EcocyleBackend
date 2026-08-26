@@ -19,7 +19,14 @@ return [
     ],
 
     'resend' => [
-        'key' => env('RESEND_API_KEY'),
+        // Both spellings, because the two halves of this project disagreed and
+        // the disagreement was invisible: the key lived in .env as RESEND_KEY
+        // while this line read RESEND_API_KEY, so config('services.resend.key')
+        // was null, AppServiceProvider quietly fell back to the log driver, and
+        // a correctly-configured Resend account delivered nothing without ever
+        // raising an error. RESEND_API_KEY is the canonical Laravel/Resend name
+        // and wins; RESEND_KEY is accepted so the docs and deploy guide work.
+        'key' => env('RESEND_API_KEY', env('RESEND_KEY')),
     ],
 
     'ses' => [
