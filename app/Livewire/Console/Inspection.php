@@ -128,9 +128,18 @@ class Inspection extends Component
             return null;
         }
 
+        $settlement = app(SettlementService::class);
+
+        // A misconfigured split is an operations problem, not a reason for the
+        // bench to 500 the moment a weight is typed. The banner says what is
+        // wrong; Accept stays disabled until it is fixed.
+        if ($settlement->shareConfigError()) {
+            return null;
+        }
+
         $category = WasteCategory::find($this->categoryId) ?? $batch->effectiveCategory();
 
-        return app(SettlementService::class)->preview($batch, (float) $this->verifiedKg, $category);
+        return $settlement->preview($batch, (float) $this->verifiedKg, $category);
     }
 
     /**
@@ -169,6 +178,12 @@ class Inspection extends Component
             return;
         }
 
+        if ($problem = $settlement->shareConfigError()) {
+            $this->dispatch('toast', message: $problem, kind: 'warn');
+
+            return;
+        }
+
         $batch = $this->toInspecting($batch, $machine);
 
         $batch = $machine->transition($batch, BatchStatus::Verified, auth()->user(), [
@@ -187,11 +202,13 @@ class Inspection extends Component
         $batch->household?->user?->notify(new BatchVerified($batch));
         $batch->agent?->user?->notify(new BatchVerified($batch));
 
-        $this->dispatch('toast', message: 'Batch accepted — settlement released', kind: 'ok');
-
-        if ($flag) {
-            $this->dispatch('toast', message: 'Variance flagged for integrity review', kind: 'warn');
-        }
+        // One action, one alert. This used to fire two toasts back to back, which
+        // read on screen as the same confirmation appearing twice.
+        $this->dispatch('toast',
+            message: $flag
+                ? 'Batch accepted — settled, and the variance is flagged for review'
+                : 'Batch accepted — settlement released',
+            kind: $flag ? 'warn' : 'ok');
 
         $this->reset(['verifiedKg', 'contamination', 'inspectorNote']);
         $this->selectFirst();
@@ -281,6 +298,7 @@ class Inspection extends Component
             ->get();
 
         return view('livewire.console.inspection', [
+            'shareError' => app(SettlementService::class)->shareConfigError(),
             'queue' => $queue,
             'queueKg' => $queue->sum(fn ($b) => $b->collected_kg ?? $b->expected_kg ?? 0),
             'categories' => WasteCategory::active()->get(),

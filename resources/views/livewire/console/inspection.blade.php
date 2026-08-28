@@ -12,6 +12,18 @@
         </div>
     </div>
 
+    {{-- A split that does not add up cannot value anything, so say so here
+         rather than letting the settlement preview throw on the next keystroke. --}}
+    @if ($shareError)
+        <div class="callout callout-warn mb-16">
+            <i data-icon="alert" class="i i-sm"></i>
+            <div>
+                <strong>Settlement is disabled.</strong>
+                {{ $shareError }}
+            </div>
+        </div>
+    @endif
+
     <section class="grid" style="grid-template-columns:340px minmax(0,1fr);gap:16px;align-items:start">
 
         {{-- Queue --}}
@@ -314,7 +326,8 @@
                         <button class="btn btn-danger" wire:click="$set('showReject', true)">
                             <i data-icon="ban" class="i i-sm"></i> Reject batch
                         </button>
-                        <button class="btn btn-primary" wire:click="accept" wire:loading.attr="disabled">
+                        <button class="btn btn-primary" wire:click="accept"
+                                wire:loading.attr="disabled" @disabled($shareError)>
                             <i data-icon="check" class="i i-sm"></i>
                             <span wire:loading.remove wire:target="accept">Accept and settle</span>
                             <span wire:loading wire:target="accept">Settling…</span>

@@ -152,13 +152,37 @@ class SettlementService
 
     private function householdShare(): float
     {
+        if ($problem = $this->shareConfigError()) {
+            throw new \DomainException($problem);
+        }
+
+        return (float) config('ecocycle.household_share');
+    }
+
+    /**
+     * Why the configured split cannot be used, or null if it is fine.
+     *
+     * The throw above is right for settle(): money must never move on a split
+     * that does not add up. It was wrong for everything else. preview() runs on
+     * every keystroke in the inspection bench, so a single mistyped environment
+     * variable turned "type a weight" into a 500 — the screen died rather than
+     * saying what was wrong with it.
+     *
+     * Callers that only display a figure ask this first and show the message.
+     */
+    public function shareConfigError(): ?string
+    {
         $hh = (float) config('ecocycle.household_share');
         $ag = (float) config('ecocycle.agent_share');
 
-        if (abs(($hh + $ag) - 1.0) > 0.0001) {
-            throw new \DomainException('household_share + agent_share must equal 1.0');
+        if (abs(($hh + $ag) - 1.0) <= 0.0001) {
+            return null;
         }
 
-        return $hh;
+        return sprintf(
+            'Settlement split does not add up: household %.2f + agent %.2f = %.2f, not 1.00. '
+            . 'Check ECOCYCLE_HOUSEHOLD_SHARE and ECOCYCLE_AGENT_SHARE, then clear the config cache.',
+            $hh, $ag, $hh + $ag
+        );
     }
 }
