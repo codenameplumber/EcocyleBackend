@@ -82,9 +82,23 @@ class WasteBatch extends Model
         return $q->whereNotIn('status', ['PROCESSED', 'REJECTED', 'CANCELLED']);
     }
 
+    /**
+     * The inspector's queue.
+     *
+     * IN_TRANSIT is in here because the facility no longer runs a separate
+     * weighbridge: the agent arrives at the bench, the inspector scans the tag
+     * and weighs the batch. Without this a load would leave the last doorstep
+     * and never appear in front of anybody.
+     */
     public function scopeAwaitingInspection(Builder $q): Builder
     {
-        return $q->whereIn('status', ['RECEIVED', 'INSPECTING']);
+        return $q->whereIn('status', ['IN_TRANSIT', 'RECEIVED', 'INSPECTING']);
+    }
+
+    /** When this batch started waiting to be looked at. */
+    public function queuedAt(): ?\Illuminate\Support\Carbon
+    {
+        return $this->received_at ?? $this->in_transit_at ?? $this->collected_at;
     }
 
     public function scopeSettleable(Builder $q): Builder

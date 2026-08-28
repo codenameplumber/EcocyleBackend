@@ -10,10 +10,12 @@
             ['pipeline',   'console.pipeline',   'route',   'Waste pipeline', \App\Models\WasteBatch::open()->count()],
             ['batches',    'console.batches',    'package', 'Batches',        null],
         ],
+        // The facility does one job: scan the tag, weigh the load, record the
+        // real weight. The weighbridge and processing screens still exist at
+        // their routes -- they are simply not the operator's daily work, and a
+        // sidebar that lists everything the code can do is a sidebar nobody reads.
         'Facility' => [
-            ['gate',       'console.gate',       'truck',   'Weighbridge',    \App\Models\WasteBatch::where('status', 'IN_TRANSIT')->count()],
             ['inspection', 'console.inspection', 'inspect', 'Inspection',     \App\Models\WasteBatch::awaitingInspection()->count()],
-            ['processing', 'console.processing', 'factory', 'Processing',     null],
         ],
         'Network' => [
             ['households', 'console.households', 'house',   'Households',     null],

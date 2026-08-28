@@ -58,7 +58,7 @@ class Inspection extends Component
 
     private function selectFirst(): void
     {
-        $first = WasteBatch::awaitingInspection()->orderBy('received_at')->first();
+        $first = WasteBatch::awaitingInspection()->orderByRaw($this->queueOrder())->first();
         if ($first) {
             $this->select($first->id);
         }
@@ -77,6 +77,12 @@ class Inspection extends Component
         $this->grade = 'A';
         $this->contamination = [];
         $this->showReject = false;
+    }
+
+    /** Oldest waiting first. IN_TRANSIT has no received_at, so fall back. */
+    private function queueOrder(): string
+    {
+        return 'COALESCE(received_at, in_transit_at, collected_at, created_at) ASC';
     }
 
     public function toggleContamination(string $value): void
@@ -127,6 +133,29 @@ class Inspection extends Component
         return app(SettlementService::class)->preview($batch, (float) $this->verifiedKg, $category);
     }
 
+    /**
+     * Walk a batch up to INSPECTING from wherever the inspector found it.
+     *
+     * A load now arrives still marked IN_TRANSIT, so the bench books it in and
+     * opens it in one motion. Each step still goes through the state machine,
+     * so every hop is validated and leaves its own batch_events row -- the
+     * arrival is recorded even though there is no longer a gate screen.
+     */
+    private function toInspecting(WasteBatch $batch, BatchStateMachine $machine): WasteBatch
+    {
+        if ($batch->status === BatchStatus::InTransit) {
+            $batch = $machine->transition($batch, BatchStatus::Received, auth()->user(), [
+                'facility_id' => $batch->facility_id ?? \App\Models\Facility::value('id'),
+            ]);
+        }
+
+        if ($batch->status === BatchStatus::Received) {
+            $batch = $machine->transition($batch, BatchStatus::Inspecting, auth()->user());
+        }
+
+        return $batch;
+    }
+
     public function accept(
         BatchStateMachine $machine,
         SettlementService $settlement,
@@ -140,10 +169,7 @@ class Inspection extends Component
             return;
         }
 
-        // Move into INSPECTING first if it arrived straight from RECEIVED.
-        if ($batch->status === BatchStatus::Received) {
-            $batch = $machine->transition($batch, BatchStatus::Inspecting, auth()->user());
-        }
+        $batch = $this->toInspecting($batch, $machine);
 
         $batch = $machine->transition($batch, BatchStatus::Verified, auth()->user(), [
             'verified_kg' => (float) $this->verifiedKg,
@@ -178,9 +204,7 @@ class Inspection extends Component
             return;
         }
 
-        if ($batch->status === BatchStatus::Received) {
-            $batch = $machine->transition($batch, BatchStatus::Inspecting, auth()->user());
-        }
+        $batch = $this->toInspecting($batch, $machine);
 
         $batch = $machine->transition($batch, BatchStatus::Rejected, auth()->user(), [
             'rejection_reason' => $this->rejectionReason,
@@ -253,7 +277,7 @@ class Inspection extends Component
     {
         $queue = WasteBatch::awaitingInspection()
             ->with(['household.user', 'category'])
-            ->orderBy('received_at')
+            ->orderByRaw($this->queueOrder())
             ->get();
 
         return view('livewire.console.inspection', [
